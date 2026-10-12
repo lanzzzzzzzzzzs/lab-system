@@ -1,0 +1,15 @@
+# Secrets: never upload these to a public repository
+.env
+config.php
+
+# Editor and system files
+.vscode/
+.DS_Store
+Thumbs.db
+
+# Logs and dependencies
+*.log
+node_modules/
+
+# Uploaded files (if the project accepts uploads later)
+uploads/

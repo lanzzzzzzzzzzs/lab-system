@@ -1,0 +1,125 @@
+/* Custom styles. Everything else comes from Tailwind classes in the HTML. */
+
+body {
+  margin: 0;
+  min-width: 320px;
+  font-family: "Inter", "Avenir Next", "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button {
+  cursor: pointer;
+}
+
+/* ---------- Sidebar links ---------- */
+.nav-item {
+  display: flex;
+  width: 100%;
+  align-items: center;
+  gap: 0.75rem;
+  border-radius: 0.75rem;
+  padding: 0.7rem 0.75rem;
+  color: #94a3b8;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  transition: color 150ms, background 150ms;
+}
+
+.nav-item:hover {
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+}
+
+.nav-item-active {
+  background: rgba(52, 211, 153, 0.13);
+  color: #6ee7b7;
+}
+
+/* ---------- Small colored icon boxes in the stat cards ---------- */
+.stat-icon {
+  display: flex;
+  width: 2rem;
+  height: 2rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.65rem;
+}
+
+.stat-emerald { background: #ecfdf5; color: #059669; }
+.stat-indigo  { background: #eef2ff; color: #4f46e5; }
+.stat-amber   { background: #fffbeb; color: #d97706; }
+.stat-violet  { background: #f5f3ff; color: #7c3aed; }
+.stat-rose    { background: #fff1f2; color: #e11d48; }
+
+/* ---------- Equipment card picture area ---------- */
+.equipment-visual {
+  position: relative;
+  display: flex;
+  height: 11rem;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+
+.visual-indigo  { background: #eef2ff; color: #6366f1; }
+.visual-cyan    { background: #ecfeff; color: #0891b2; }
+.visual-amber   { background: #fffbeb; color: #d97706; }
+.visual-violet  { background: #f5f3ff; color: #7c3aed; }
+.visual-emerald { background: #ecfdf5; color: #059669; }
+.visual-rose    { background: #fff1f2; color: #f43f5e; }
+
+/* ---------- Login role cards (Student / Administrator) ---------- */
+.role-card {
+  border: 1px solid #e2e8f0;
+  border-radius: 1rem;
+  padding: 1rem;
+  text-align: left;
+  background: white;
+  transition: border-color 150ms, background 150ms;
+}
+
+.role-card:hover {
+  border-color: #cbd5e1;
+}
+
+.role-card.active {
+  border-color: #a78bfa;
+  background: #f5f3ff;
+  box-shadow: 0 0 0 4px #ede9fe;
+}
+
+.role-icon {
+  display: flex;
+  width: 2.25rem;
+  height: 2.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.75rem;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.role-card.active .role-icon {
+  background: #a78bfa;
+  color: #020617;
+}
+
+.role-check {
+  display: none;
+  width: 1.25rem;
+  height: 1.25rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 9999px;
+  background: #8b5cf6;
+  color: white;
+}
+
+.role-card.active .role-check {
+  display: flex;
+}
