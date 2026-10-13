@@ -26,7 +26,8 @@ _(Update this list as features are finished.)_
 1. Install [XAMPP](https://www.apachefriends.org/) and start **Apache** and **MySQL**.
 2. Copy this project folder into XAMPP's `htdocs` folder (for example `htdocs/lab-system`).
 3. Set up the database (see below).
-4. Open `http://localhost/lab-system/` in your browser.
+4. Copy `api/config.example.php` and name the copy `api/config.php`, then check the database settings inside it (XAMPP's defaults are user `root` with an empty password). This file is ignored by Git.
+5. Open `http://localhost/lab-system/` in your browser.
 
 ## Database Setup
 1. Open `http://localhost/phpmyadmin`.
