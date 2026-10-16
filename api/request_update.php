@@ -23,13 +23,13 @@ $stmt = $pdo->prepare("SELECT * FROM equipment WHERE id = ?");
 $stmt->execute([$request["equipment_id"]]);
 $item = $stmt->fetch();
 
-$today = date("Y-m-d");
+$now = date("Y-m-d H:i:s");   // the day and the time
 
 if ($action === "approve") {
-    if ($request["status"] !== "Pending") {
-        sendJson(["error" => "Only pending requests can be approved."], 409);
+    if ($request["status"] !== "Authorized") {
+        sendJson(["error" => "The professor must authorize this request first."], 409);
     }
-    if ($item["condition_status"] !== "Operational" || $item["available_units"] < $request["quantity"]) {
+    if ($item["available_units"] < $request["quantity"]) {
         sendJson(["error" => "Not enough units of this equipment are available."], 409);
     }
 
@@ -38,18 +38,18 @@ if ($action === "approve") {
     $pdo->prepare("UPDATE equipment SET available_units = available_units - ? WHERE id = ?")
         ->execute([$request["quantity"], $item["id"]]);
     $pdo->prepare("UPDATE borrow_requests SET status = 'Approved', date_reviewed = ? WHERE id = ?")
-        ->execute([$today, $id]);
+        ->execute([$now, $id]);
     $pdo->commit();
 
     sendJson(["message" => "Request approved."]);
 }
 
 if ($action === "decline") {
-    if ($request["status"] !== "Pending") {
-        sendJson(["error" => "Only pending requests can be declined."], 409);
+    if (!in_array($request["status"], ["Pending", "Authorized"])) {
+        sendJson(["error" => "Only requests that are still waiting can be declined."], 409);
     }
     $pdo->prepare("UPDATE borrow_requests SET status = 'Declined', date_reviewed = ? WHERE id = ?")
-        ->execute([$today, $id]);
+        ->execute([$now, $id]);
 
     sendJson(["message" => "Request declined."]);
 }
@@ -62,8 +62,8 @@ if ($action === "return") {
     // Mark returned and give the units back (never more than the total)
     $pdo->beginTransaction();
     $pdo->prepare("UPDATE borrow_requests SET status = 'Returned', date_returned = ? WHERE id = ?")
-        ->execute([$today, $id]);
-    $pdo->prepare("UPDATE equipment SET available_units = LEAST(available_units + ?, total_units) WHERE id = ?")
+        ->execute([$now, $id]);
+    $pdo->prepare("UPDATE equipment SET available_units = LEAST(available_units + ?, total_units - inspection_units) WHERE id = ?")
         ->execute([$request["quantity"], $item["id"]]);
     $pdo->commit();
 

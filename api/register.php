@@ -1,6 +1,6 @@
 <?php
-// Creates an account. account_type "student" is open to everyone.
-// account_type "admin" also needs the secret administrator code from config.php.
+// Creates an account.
+// "student" is open to everyone. "professor" and "admin" also need a secret code from config.php.
 require __DIR__ . "/db.php";
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
@@ -8,17 +8,25 @@ if ($_SERVER["REQUEST_METHOD"] !== "POST") {
 }
 
 $input = getInput();
-$type       = $input["account_type"] ?? "student";   // "student" or "admin"
+$type       = $input["account_type"] ?? "student";   // "student", "professor" or "admin"
 $fullName   = trim($input["full_name"] ?? "");
 $email      = trim($input["email"] ?? "");
 $password   = $input["password"] ?? "";
 $idNumber   = trim($input["student_id"] ?? "");      // the student ID or the staff ID
 $department = trim($input["department"] ?? "");
-$adminCode  = (string) ($input["admin_code"] ?? "");
+$accessCode = (string) ($input["access_code"] ?? "");
+
+if (!in_array($type, ["student", "professor", "admin"])) {
+    sendJson(["error" => "Invalid account type."], 400);
+}
 
 // Server-side validation (the browser can be bypassed, so PHP checks again)
 if ($fullName === "" || $email === "" || $password === "") {
     sendJson(["error" => "Please complete all required fields."], 400);
+}
+// The student ID (or staff ID) and the department are required for every account
+if ($idNumber === "" || $department === "") {
+    sendJson(["error" => "Please enter your ID and department."], 400);
 }
 if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     sendJson(["error" => "Please enter a valid email address."], 400);
@@ -30,29 +38,33 @@ if (strlen($fullName) > 100 || strlen($idNumber) > 30 || strlen($department) > 1
     sendJson(["error" => "One of the fields is too long."], 400);
 }
 
-// The role is decided here on the server. Without the secret code it is always "student".
+// The role is decided here on the server. Without the right secret code it is always "student".
 $role = "student";
 
-// Every attempt to create an administrator is saved in the admin_attempts table
-$log = $pdo->prepare("INSERT INTO admin_attempts (email, success, ip_address) VALUES (?, ?, ?)");
+// Every attempt to create a professor or administrator is saved in account_attempts
+$log = $pdo->prepare("INSERT INTO account_attempts (email, account_type, success, ip_address) VALUES (?, ?, ?, ?)");
 $ip = $_SERVER["REMOTE_ADDR"] ?? "";
 
-if ($type === "admin") {
-    if ($idNumber === "" || $department === "" || $adminCode === "") {
+if ($type !== "student") {
+    if ($idNumber === "" || $department === "" || $accessCode === "") {
         sendJson(["error" => "Please complete all required fields."], 400);
     }
 
-    // $ADMIN_CODE comes from config.php. hash_equals compares two texts safely.
-    if (!isset($ADMIN_CODE) || $ADMIN_CODE === "") {
-        $log->execute([$email, 0, $ip]);
-        sendJson(["error" => "Administrator registration is not available."], 403);
+    // The secret code for this account type comes from config.php
+    $secret = ($type === "admin") ? ($ADMIN_CODE ?? "") : ($PROFESSOR_CODE ?? "");
+    $label  = ($type === "admin") ? "administrator" : "professor";
+
+    if ($secret === "") {
+        $log->execute([$email, $type, 0, $ip]);
+        sendJson(["error" => "Creating a $label account is not available."], 403);
     }
-    if (!hash_equals($ADMIN_CODE, $adminCode)) {
-        $log->execute([$email, 0, $ip]);
-        sendJson(["error" => "Invalid administrator code."], 403);
+    // hash_equals compares two texts safely
+    if (!hash_equals($secret, $accessCode)) {
+        $log->execute([$email, $type, 0, $ip]);
+        sendJson(["error" => "Invalid $label code."], 403);
     }
 
-    $role = "admin";
+    $role = $type;
 }
 
 // Is the email already used?
@@ -76,7 +88,11 @@ $insert->execute([
 ]);
 
 if ($role === "admin") {
-    $log->execute([$email, 1, $ip]);
+    $log->execute([$email, $type, 1, $ip]);
     sendJson(["message" => "Administrator account created. Sign in with the Administrator card."], 201);
+}
+if ($role === "professor") {
+    $log->execute([$email, $type, 1, $ip]);
+    sendJson(["message" => "Professor account created. Sign in with the Professor card."], 201);
 }
 sendJson(["message" => "Account created. You can now sign in."], 201);

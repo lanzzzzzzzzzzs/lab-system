@@ -36,8 +36,8 @@ button {
 }
 
 .nav-item-active {
-  background: rgba(52, 211, 153, 0.13);
-  color: #6ee7b7;
+  background: rgba(139, 92, 246, 0.18);
+  color: #c4b5fd;
 }
 
 /* ---------- Small colored icon boxes in the stat cards ---------- */
@@ -72,6 +72,11 @@ button {
 .visual-violet  { background: #f5f3ff; color: #7c3aed; }
 .visual-emerald { background: #ecfdf5; color: #059669; }
 .visual-rose    { background: #fff1f2; color: #f43f5e; }
+.visual-teal    { background: #f0fdfa; color: #0d9488; }
+.visual-orange  { background: #fff7ed; color: #ea580c; }
+.visual-sky     { background: #f0f9ff; color: #0284c7; }
+.visual-fuchsia { background: #fdf4ff; color: #c026d3; }
+.visual-lime    { background: #f7fee7; color: #65a30d; }
 
 /* ---------- Login role cards (Student / Administrator) ---------- */
 .role-card {
@@ -123,3 +128,84 @@ button {
 .role-card.active .role-check {
   display: flex;
 }
+
+
+/* =====================================================
+   DARK MODE
+   The page gets the class "dark" on <html> (see toggleTheme in app.js).
+   These rules replace the light colors of the Tailwind classes.
+   ===================================================== */
+.dark { color-scheme: dark; }
+.dark body { background: #020617; color: #e2e8f0; }
+
+/* surfaces */
+.dark .bg-white { background-color: #0a1020; }
+.dark .bg-white\/90 { background-color: rgba(2, 6, 23, 0.9); }
+.dark .bg-white\/80 { background-color: rgba(10, 16, 32, 0.8); }
+.dark .bg-slate-50 { background-color: #0f172a; }
+.dark .bg-slate-100 { background-color: #141d33; }
+.dark .bg-slate-200 { background-color: #1e293b; }
+
+/* borders and dividers */
+.dark .border-slate-100 { border-color: #172033; }
+.dark .border-slate-200 { border-color: #1e293b; }
+.dark .border-slate-300 { border-color: #334155; }
+.dark .divide-slate-100 > :not([hidden]) ~ :not([hidden]) { border-color: #172033; }
+
+/* text */
+.dark .text-slate-950, .dark .text-slate-900 { color: #f8fafc; }
+.dark .text-slate-800 { color: #f1f5f9; }
+.dark .text-slate-700 { color: #cbd5e1; }
+.dark .text-slate-600 { color: #aab6c8; }
+.dark .text-slate-500 { color: #8a99b0; }
+
+/* form fields */
+.dark input, .dark select, .dark textarea { color: #f1f5f9; }
+.dark input::placeholder, .dark textarea::placeholder { color: #475569; }
+
+/* soft colored backgrounds and their text */
+.dark .bg-violet-50 { background-color: rgba(139, 92, 246, 0.16); }
+.dark .bg-indigo-50 { background-color: rgba(99, 102, 241, 0.16); }
+.dark .bg-amber-50 { background-color: rgba(245, 158, 11, 0.14); }
+.dark .bg-amber-100 { background-color: rgba(245, 158, 11, 0.22); }
+.dark .bg-rose-50 { background-color: rgba(244, 63, 94, 0.14); }
+.dark .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.14); }
+.dark .text-violet-700, .dark .text-violet-600 { color: #c4b5fd; }
+.dark .text-violet-900, .dark .text-violet-800 { color: #ddd6fe; }
+.dark .text-indigo-700, .dark .text-indigo-600 { color: #a5b4fc; }
+.dark .text-amber-700, .dark .text-amber-800, .dark .text-amber-900 { color: #fcd34d; }
+.dark .text-rose-600, .dark .text-rose-500 { color: #fb7185; }
+.dark .text-emerald-700, .dark .text-emerald-600 { color: #34d399; }
+
+/* hover colors */
+.dark .hover\:bg-slate-50:hover { background-color: #111a2e; }
+.dark .hover\:bg-slate-100:hover, .dark .hover\:bg-slate-200:hover { background-color: #1a2540; }
+.dark .hover\:bg-violet-50:hover, .dark .hover\:bg-violet-100:hover { background-color: rgba(139, 92, 246, 0.22); }
+.dark .hover\:bg-rose-50:hover { background-color: rgba(244, 63, 94, 0.16); }
+.dark .hover\:bg-amber-50:hover { background-color: rgba(245, 158, 11, 0.16); }
+.dark .hover\:bg-emerald-50:hover { background-color: rgba(16, 185, 129, 0.16); }
+
+/* equipment card pictures */
+.dark .visual-indigo  { background: rgba(99, 102, 241, 0.14);  color: #a5b4fc; }
+.dark .visual-cyan    { background: rgba(6, 182, 212, 0.14);   color: #67e8f9; }
+.dark .visual-amber   { background: rgba(245, 158, 11, 0.14);  color: #fcd34d; }
+.dark .visual-violet  { background: rgba(139, 92, 246, 0.16);  color: #c4b5fd; }
+.dark .visual-emerald { background: rgba(16, 185, 129, 0.14);  color: #6ee7b7; }
+.dark .visual-rose    { background: rgba(244, 63, 94, 0.14);   color: #fda4af; }
+.dark .visual-teal    { background: rgba(20, 184, 166, 0.14);  color: #5eead4; }
+.dark .visual-orange  { background: rgba(249, 115, 22, 0.14);  color: #fdba74; }
+.dark .visual-sky     { background: rgba(14, 165, 233, 0.14);  color: #7dd3fc; }
+.dark .visual-fuchsia { background: rgba(217, 70, 239, 0.14);  color: #f0abfc; }
+.dark .visual-lime    { background: rgba(132, 204, 22, 0.14);  color: #bef264; }
+
+/* login role cards */
+.dark .role-card { background: #0a1020; border-color: #1e293b; }
+.dark .role-card:hover { border-color: #334155; }
+.dark .role-card.active { background: rgba(139, 92, 246, 0.14); border-color: #8b5cf6; box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.15); }
+.dark .role-icon { background: #141d33; color: #8a99b0; }
+.dark .role-card.active .role-icon { background: #a78bfa; color: #020617; }
+
+/* dark form fields (the text boxes, dropdowns, and text areas) */
+.dark input:not([type="checkbox"]):not([type="radio"]),
+.dark select,
+.dark textarea { background-color: #0f172a; }

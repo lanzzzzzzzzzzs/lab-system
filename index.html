@@ -7,6 +7,15 @@
 
   <!-- Tailwind CSS (free framework, allowed by the project spec) -->
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
+  <script>
+    // Dark mode: use the saved choice, or the computer's setting the first time
+    try {
+      var savedTheme = localStorage.getItem("theme");
+      if (savedTheme === "dark" || (!savedTheme && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
+        document.documentElement.classList.add("dark");
+      }
+    } catch (error) {}
+  </script>
   <link rel="stylesheet" href="style.css">
 </head>
 
@@ -15,7 +24,7 @@
   <!-- ================= LOGIN SCREEN ================= -->
   <div id="login-screen" class="grid min-h-screen bg-white lg:grid-cols-[1.05fr_.95fr]">
 
-    <!-- Left side (desktop only). Two versions: normal, and administrator sign up -->
+    <!-- Left side (desktop only). Three versions: normal, administrator sign up, professor sign up -->
     <section class="relative hidden overflow-hidden bg-slate-950 p-12 text-white lg:flex lg:flex-col">
       <div class="absolute -left-32 -top-32 size-96 rounded-full border-[4.5rem] border-violet-400/10"></div>
       <div class="absolute -bottom-40 right-0 size-[28rem] rounded-full border-[5rem] border-indigo-400/10"></div>
@@ -48,19 +57,19 @@
           </div>
           <h1 class="text-5xl font-bold leading-[1.08] tracking-tight">Everything your lab needs, in one place.</h1>
           <p class="mt-6 max-w-lg text-base leading-7 text-slate-400">
-            Borrow equipment, track returns, and manage your laboratory inventory through one simple, reliable workspace.
+            Borrow equipment, authorize class activities, and manage your laboratory inventory through one simple, reliable workspace.
           </p>
           <div class="mt-12 grid grid-cols-3 gap-3">
             <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div class="text-2xl font-bold">61</div>
+              <div id="stat-items" class="text-2xl font-bold">—</div>
               <div class="mt-1 text-xs text-slate-500">Lab items</div>
             </div>
             <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div class="text-2xl font-bold">36</div>
+              <div id="stat-available" class="text-2xl font-bold">—</div>
               <div class="mt-1 text-xs text-slate-500">Available now</div>
             </div>
             <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div class="text-2xl font-bold">98%</div>
+              <div id="stat-ontime" class="text-2xl font-bold">—</div>
               <div class="mt-1 text-xs text-slate-500">On-time returns</div>
             </div>
           </div>
@@ -88,11 +97,11 @@
           </p>
           <div class="mt-12 grid grid-cols-3 gap-3">
             <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div class="text-2xl font-bold">61</div>
+              <div id="stat-items-admin" class="text-2xl font-bold">—</div>
               <div class="mt-1 text-xs text-slate-500">Lab items</div>
             </div>
             <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
-              <div class="text-2xl font-bold">06</div>
+              <div id="stat-accounts" class="text-2xl font-bold">—</div>
               <div class="mt-1 text-xs text-slate-500">User accounts</div>
             </div>
             <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
@@ -106,10 +115,47 @@
           <span id="admin-footer-icon"></span> Administrator access is verified by your institution.
         </div>
       </div>
+
+      <!-- Professor sign up version -->
+      <div id="left-professor" class="contents hidden">
+        <div class="relative my-auto max-w-xl">
+          <div class="mb-7 inline-flex items-center gap-2 rounded-full border border-violet-400/20 bg-violet-400/10 px-3 py-1.5 text-xs font-bold text-violet-300">
+            <span id="professor-badge-icon"></span> Verified institutional access
+          </div>
+          <h1 class="text-5xl font-bold leading-[1.08] tracking-tight">Keep every class request accountable.</h1>
+          <p class="mt-6 max-w-lg text-base leading-7 text-slate-400">
+            Create a professor account to verify class activities and authorize student equipment requests before laboratory release.
+          </p>
+          <div class="mt-12 grid grid-cols-3 gap-3">
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div id="stat-requests" class="text-2xl font-bold">—</div>
+              <div class="mt-1 text-xs text-slate-500">Class requests</div>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div id="stat-courses" class="text-2xl font-bold">—</div>
+              <div class="mt-1 text-xs text-slate-500">Active courses</div>
+            </div>
+            <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+              <div class="text-2xl font-bold">24/7</div>
+              <div class="mt-1 text-xs text-slate-500">Approval records</div>
+            </div>
+          </div>
+        </div>
+
+        <div class="relative flex items-center gap-3 text-xs text-slate-500">
+          <span id="professor-footer-icon"></span> Professor access is verified by your institution.
+        </div>
+      </div>
     </section>
 
     <!-- Right side: the form -->
-    <main class="flex min-h-screen flex-col">
+    <main class="relative flex min-h-screen flex-col">
+      <!-- Dark / light mode switch -->
+      <button id="theme-btn-login" onclick="toggleTheme()" aria-label="Switch between light and dark mode"
+        class="absolute right-6 top-6 z-10 flex size-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50">
+        <span id="theme-icon-login"></span>
+      </button>
+
       <div class="flex items-center gap-3 border-b border-slate-100 px-6 py-5 lg:hidden">
         <div id="login-logo-small" class="flex size-9 items-center justify-center rounded-xl bg-violet-400 text-slate-950"></div>
         <div class="font-bold">LabTrack</div>
@@ -129,7 +175,7 @@
           </div>
 
           <!-- Role choice (sign in only) -->
-          <div id="role-cards" class="mb-7 grid grid-cols-2 gap-3">
+          <div id="role-cards" class="mb-7 grid grid-cols-3 gap-3">
             <button type="button" id="role-student" onclick="selectRole('student')" class="role-card active">
               <div class="flex items-center justify-between">
                 <div class="role-icon" id="role-student-icon"></div>
@@ -138,7 +184,14 @@
               <div class="mt-4 text-sm font-bold text-slate-950">Student</div>
               <div class="mt-1 text-xs text-slate-500">Borrow laboratory items</div>
             </button>
-
+            <button type="button" id="role-professor" onclick="selectRole('professor')" class="role-card">
+              <div class="flex items-center justify-between">
+                <div class="role-icon" id="role-professor-icon"></div>
+                <span class="role-check" id="role-professor-check"></span>
+              </div>
+              <div class="mt-4 text-sm font-bold text-slate-950">Professor</div>
+              <div class="mt-1 text-xs text-slate-500">Authorize class requests</div>
+            </button>
             <button type="button" id="role-admin" onclick="selectRole('admin')" class="role-card">
               <div class="flex items-center justify-between">
                 <div class="role-icon" id="role-admin-icon"></div>
@@ -150,23 +203,23 @@
           </div>
 
           <form onsubmit="handleLogin(event)">
-            <!-- Extra fields for sign up (student or administrator) -->
+            <!-- Extra fields for sign up -->
             <div id="register-fields" class="mb-5 hidden space-y-5">
               <label class="block text-xs font-bold text-slate-700" for="register-name">
                 Full name
                 <input id="register-name" type="text" placeholder="Alex Morgan" class="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-sm font-normal outline-none transition placeholder:text-slate-300 focus:border-violet-500 focus:ring-4 focus:ring-violet-100">
               </label>
               <div class="grid gap-5 sm:grid-cols-2">
-                <div id="register-id-box" class="sm:col-span-2">
+                <div id="register-id-box">
                   <label class="block text-xs font-bold text-slate-700" for="register-id">
-                    <span id="register-id-label">Student ID (optional)</span>
+                    <span id="register-id-label">Student ID</span>
                     <input id="register-id" type="text" placeholder="STU-2024-081" class="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-sm font-normal outline-none transition placeholder:text-slate-300 focus:border-violet-500 focus:ring-4 focus:ring-violet-100">
                   </label>
                 </div>
-                <div id="register-department-box" class="hidden">
+                <div id="register-department-box">
                   <label class="block text-xs font-bold text-slate-700" for="register-department">
                     Department
-                    <input id="register-department" type="text" placeholder="Laboratory Services" class="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-sm font-normal outline-none transition placeholder:text-slate-300 focus:border-violet-500 focus:ring-4 focus:ring-violet-100">
+                    <input id="register-department" type="text" placeholder="Biochemistry" class="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-sm font-normal outline-none transition placeholder:text-slate-300 focus:border-violet-500 focus:ring-4 focus:ring-violet-100">
                   </label>
                 </div>
               </div>
@@ -179,9 +232,9 @@
               </label>
 
               <div id="admin-code-box" class="hidden">
-                <label class="block text-xs font-bold text-slate-700" for="register-admin-code">
-                  Administrator access code
-                  <input id="register-admin-code" type="password" autocomplete="off" placeholder="Provided by your institution" class="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-sm font-normal outline-none transition placeholder:text-slate-300 focus:border-violet-500 focus:ring-4 focus:ring-violet-100">
+                <label class="block text-xs font-bold text-slate-700" for="register-code">
+                  <span id="code-label">Administrator access code</span>
+                  <input id="register-code" type="password" autocomplete="off" placeholder="Provided by your institution" class="mt-2 h-12 w-full rounded-xl border border-slate-200 px-4 text-sm font-normal outline-none transition placeholder:text-slate-300 focus:border-violet-500 focus:ring-4 focus:ring-violet-100">
                 </label>
               </div>
 
@@ -217,11 +270,6 @@
             <span id="auth-switch-text">New student?</span>
             <button type="button" id="auth-switch-link" onclick="toggleAuthMode()"
               class="font-bold text-violet-700 hover:text-violet-600">Create an account</button>
-          </p>
-          <p id="auth-admin-link-row" class="mt-2 text-center text-xs text-slate-500">
-            Laboratory staff?
-            <button type="button" onclick="setAuthMode('admin')"
-              class="font-bold text-violet-700 hover:text-violet-600">Create an admin account</button>
           </p>
 
           <p id="auth-footnote" class="mt-8 text-center text-xs leading-5 text-slate-400">
@@ -275,6 +323,31 @@
             <span id="request-btn-icon"></span>
             <span class="hidden sm:inline">Request</span>
             <span id="basket-badge" class="hidden size-5 items-center justify-center rounded-full bg-violet-400 text-[0.65rem] font-bold text-slate-950"></span>
+          </button>
+
+          <!-- Notifications -->
+          <div id="bell-wrap" class="relative">
+            <button id="bell-btn" onclick="toggleBell()" aria-label="Notifications" aria-haspopup="true"
+              class="relative flex size-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50">
+              <span id="bell-icon"></span>
+              <span id="bell-count" class="absolute -right-1.5 -top-1.5 hidden size-5 items-center justify-center rounded-full bg-violet-600 text-[0.6rem] font-bold text-white"></span>
+            </button>
+            <div id="bell-panel" class="absolute right-0 top-12 z-50 hidden w-96 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+              <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
+                <div>
+                  <div class="text-sm font-bold text-slate-950">Notifications</div>
+                  <div class="mt-0.5 flex items-center gap-1.5 text-[0.68rem] text-slate-400"><span class="size-1.5 rounded-full bg-violet-500"></span> Live updates enabled</div>
+                </div>
+                <span class="rounded-full bg-violet-50 px-2.5 py-1 text-[0.65rem] font-bold text-violet-700">Auto-refresh</span>
+              </div>
+              <div id="bell-list" class="max-h-96 overflow-y-auto"></div>
+            </div>
+          </div>
+
+          <!-- Dark / light mode -->
+          <button id="theme-btn" onclick="toggleTheme()" aria-label="Switch between light and dark mode"
+            class="flex size-10 items-center justify-center rounded-xl border border-slate-200 bg-white text-slate-600 transition hover:bg-slate-50">
+            <span id="theme-icon"></span>
           </button>
         </div>
       </header>

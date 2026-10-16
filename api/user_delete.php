@@ -21,6 +21,13 @@ if ($check->fetchColumn() > 0) {
     sendJson(["error" => "This user still has borrowed equipment. Mark it as returned first."], 409);
 }
 
+// A professor who still has requests waiting for confirmation cannot be removed
+$check = $pdo->prepare("SELECT COUNT(*) FROM borrow_requests WHERE professor_id = ? AND status = 'Pending'");
+$check->execute([$id]);
+if ($check->fetchColumn() > 0) {
+    sendJson(["error" => "This professor still has requests waiting for confirmation."], 409);
+}
+
 // Delete the person's own records first, then the account (all together)
 $pdo->beginTransaction();
 $pdo->prepare("DELETE FROM borrow_requests WHERE user_id = ?")->execute([$id]);

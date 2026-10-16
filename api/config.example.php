@@ -5,3 +5,5 @@ $DB_HOST = "localhost";
 $DB_NAME = "lab_borrowing";
 $DB_USER = "your_database_user";
 $DB_PASS = "your_database_password";
+$ADMIN_CODE = "your_admin_code";
+$PROFESSOR_CODE = "your_professor_code";

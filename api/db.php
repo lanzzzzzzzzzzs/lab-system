@@ -46,6 +46,14 @@ function requireAdmin() {
     }
 }
 
+// Stop if the logged-in user is not a professor
+function requireProfessor() {
+    requireLogin();
+    if ($_SESSION["role"] !== "professor") {
+        sendJson(["error" => "Professors only."], 403);
+    }
+}
+
 // The user information that is safe to send to the browser (never the password)
 function userData($row) {
     return [

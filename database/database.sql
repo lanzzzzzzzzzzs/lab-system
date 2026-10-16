@@ -1,66 +1,98 @@
 -- =====================================================
 -- LabTrack - Laboratory Borrowing System
--- Import this file in phpMyAdmin (Import tab) to create the database.
+-- THE WHOLE DATABASE IN ONE FILE (nothing else to run)
+--
+-- How to use:  phpMyAdmin -> Import tab -> choose this file -> Import.
+--
+-- WARNING: this file deletes the LabTrack tables and creates them again.
+-- If the database already holds your data, importing this file ERASES it.
+--
+-- On a web host that gives you a ready-made database: delete the two lines
+-- marked "XAMPP only" below, then import this file into the database the host
+-- created for you.
 -- =====================================================
 
-CREATE DATABASE IF NOT EXISTS lab_borrowing
-  CHARACTER SET utf8mb4
-  COLLATE utf8mb4_unicode_ci;
+SET NAMES utf8mb4;
 
-USE lab_borrowing;
+-- XAMPP only: create the database and select it
+CREATE DATABASE IF NOT EXISTS lab_borrowing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE lab_borrowing;   -- XAMPP only
 
 
--- ---------- USERS (students and administrators) ----------
+-- ---------- Remove old versions of the tables (the ones that depend on others go first) ----------
+DROP TABLE IF EXISTS borrow_requests;
+DROP TABLE IF EXISTS support_messages;
+DROP TABLE IF EXISTS account_attempts;
+DROP TABLE IF EXISTS equipment;
+DROP TABLE IF EXISTS categories;
+DROP TABLE IF EXISTS users;
+
+
+-- ---------- USERS (students, professors, and administrators) ----------
 CREATE TABLE users (
   id INT AUTO_INCREMENT PRIMARY KEY,
   full_name VARCHAR(100) NOT NULL,
   email VARCHAR(100) NOT NULL UNIQUE,
   password VARCHAR(255) NOT NULL,   -- saved with password_hash(), never as plain text
-  role ENUM('student', 'admin') NOT NULL DEFAULT 'student',
+  role ENUM('student', 'professor', 'admin') NOT NULL DEFAULT 'student',
   status ENUM('Active', 'Suspended') NOT NULL DEFAULT 'Active',
-  student_id VARCHAR(30) NULL,
+  student_id VARCHAR(30) NULL,      -- the student ID, or the staff ID for professors and administrators
   department VARCHAR(100) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- ---------- CATEGORIES (Optical, Glassware, Measuring...) ----------
 CREATE TABLE categories (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(50) NOT NULL UNIQUE
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- ---------- EQUIPMENT ----------
+-- total units = available + in inspection + borrowed
 CREATE TABLE equipment (
   id INT AUTO_INCREMENT PRIMARY KEY,
   name VARCHAR(100) NOT NULL,
   code VARCHAR(20) NOT NULL UNIQUE,
   category_id INT NOT NULL,
   total_units INT NOT NULL DEFAULT 1,
-  available_units INT NOT NULL DEFAULT 1,
-  condition_status ENUM('Operational', 'Inspection', 'Maintenance') NOT NULL DEFAULT 'Operational',
+  available_units INT NOT NULL DEFAULT 1,        -- units on the shelf that can be borrowed
+  inspection_units INT NOT NULL DEFAULT 0,       -- units in inspection or maintenance (cannot be borrowed)
   icon VARCHAR(20) NOT NULL DEFAULT 'cube',      -- icon name used by the front end
   color VARCHAR(20) NOT NULL DEFAULT 'indigo',   -- card color used by the front end
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (category_id) REFERENCES categories(id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- ---------- BORROW REQUESTS (one row = one student asking for one item) ----------
 CREATE TABLE borrow_requests (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
+  user_id INT NOT NULL,                -- the student
   equipment_id INT NOT NULL,
-  quantity INT NOT NULL DEFAULT 1,    -- how many units were requested
+  professor_id INT NULL,               -- the professor who confirms the class
+  quantity INT NOT NULL DEFAULT 1,     -- how many units were requested
+  course_code VARCHAR(20) NULL,        -- class details written by the student
+  course_name VARCHAR(100) NULL,
+  section VARCHAR(30) NULL,            -- for example: Section B
+  schedule VARCHAR(100) NULL,          -- for example: Wed · 1:00–4:00 PM
+  purpose VARCHAR(200) NULL,
   date_requested TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  return_date DATE NOT NULL,        -- the date the student promised to return it
-  date_reviewed DATE NULL,          -- the day an administrator approved or declined it
-  date_returned DATE NULL,          -- filled in when the item is actually returned
-  status ENUM('Pending', 'Approved', 'Declined', 'Returned') NOT NULL DEFAULT 'Pending',
+  date_needed DATE NULL,               -- the day the student needs the equipment
+  time_needed TIME NULL,               -- and the time
+  return_date DATE NOT NULL,           -- the date the student promised to return it
+  return_time TIME NULL,               -- and the time
+  date_confirmed DATETIME NULL,        -- when the professor decided
+  date_reviewed DATETIME NULL,         -- when the laboratory approved or declined it
+  date_returned DATETIME NULL,         -- filled in when the item is actually returned
+  -- Pending = waiting for the professor, Authorized = professor confirmed,
+  -- Approved = laboratory released it, Returned = given back
+  status ENUM('Pending', 'Authorized', 'Approved', 'Declined', 'Returned') NOT NULL DEFAULT 'Pending',
   FOREIGN KEY (user_id) REFERENCES users(id),
-  FOREIGN KEY (equipment_id) REFERENCES equipment(id)
-) ENGINE=InnoDB;
+  FOREIGN KEY (equipment_id) REFERENCES equipment(id),
+  FOREIGN KEY (professor_id) REFERENCES users(id) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- ---------- SUPPORT MESSAGES (from the Contact page) ----------
@@ -71,32 +103,40 @@ CREATE TABLE support_messages (
   message TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (user_id) REFERENCES users(id)
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
--- ---------- ADMIN ATTEMPTS (log of every try to create an administrator) ----------
-CREATE TABLE admin_attempts (
+-- ---------- ACCOUNT ATTEMPTS (log of every try to create a professor or administrator) ----------
+CREATE TABLE account_attempts (
   id INT AUTO_INCREMENT PRIMARY KEY,
   email VARCHAR(100) NOT NULL,
+  account_type VARCHAR(20) NOT NULL,
   success TINYINT(1) NOT NULL,
   ip_address VARCHAR(45) NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-) ENGINE=InnoDB;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 
 -- ---------- SAMPLE DATA ----------
 INSERT INTO categories (name) VALUES
   ('Optical'),
   ('Glassware'),
-  ('Measuring');
+  ('Measuring'),
+  ('Laboratory Accessories'),
+  ('Heating Equipment');
 
-INSERT INTO equipment (name, code, category_id, total_units, available_units, condition_status, icon, color) VALUES
-  ('Compound Microscope',  'MIC-204', 1, 12,  8, 'Operational', 'microscope',  'indigo'),
-  ('Erlenmeyer Flask Set', 'GLS-118', 2, 20, 14, 'Operational', 'flask',       'cyan'),
-  ('Digital Thermometer',  'MEA-072', 3,  8,  3, 'Operational', 'thermometer', 'amber'),
-  ('Precision Balance',    'MEA-093', 3,  6,  0, 'Inspection',  'cube',        'violet'),
-  ('Beaker Set · 6 pcs',   'GLS-042', 2, 10,  9, 'Operational', 'beaker',      'emerald'),
-  ('Stereo Microscope',    'MIC-217', 1,  5,  2, 'Operational', 'microscope',  'rose');
+INSERT INTO equipment (name, code, category_id, total_units, available_units, inspection_units, icon, color) VALUES
+  ('Compound Microscope',  'MIC-204', 1, 12, 12, 0, 'microscope',  'indigo'),
+  ('Erlenmeyer Flask Set', 'GLS-118', 2, 20, 20, 0, 'flask',       'cyan'),
+  ('Digital Thermometer',  'MEA-072', 3,  8,  8, 0, 'thermometer', 'amber'),
+  ('Precision Balance',    'MEA-093', 3,  6,  5, 1, 'cube',        'violet'),
+  ('Beaker Set · 6 pcs',   'GLS-042', 2, 10, 10, 0, 'beaker',      'emerald'),
+  ('Stereo Microscope',    'MIC-217', 1,  5,  5, 0, 'microscope',  'rose'),
+  ('Safety Goggles',       'ACC-301', 4, 30, 30, 0, 'goggles',     'sky'),
+  ('Laboratory Tongs',     'ACC-115', 4, 12, 12, 0, 'tongs',       'orange'),
+  ('Bunsen Burner',        'HTG-101', 5, 10, 10, 0, 'flame',       'orange'),
+  ('Hot Plate',            'HTG-205', 5,  6,  6, 0, 'hotplate',    'fuchsia');
 
 -- Users are NOT inserted here on purpose: passwords must be hashed by PHP,
--- so accounts will be created through the registration page.
+-- and no password should ever be written in a public file.
+-- Accounts are created with the sign-up pages (see the README).

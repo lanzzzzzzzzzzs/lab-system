@@ -1,5 +1,5 @@
 <?php
-// UPDATE: change another person's access level or status (administrators only).
+// UPDATE: change another person's role or status (administrators only).
 require __DIR__ . "/db.php";
 
 if ($_SERVER["REQUEST_METHOD"] !== "POST") {
@@ -23,14 +23,25 @@ if (!$user) {
     sendJson(["error" => "User not found."], 404);
 }
 
-if ($action === "promote") {
-    $pdo->prepare("UPDATE users SET role = 'admin' WHERE id = ?")->execute([$id]);
-    sendJson(["message" => "User promoted to administrator."]);
+if ($action === "role") {
+    $newRole = $input["role"] ?? "";
+    if (!in_array($newRole, ["student", "professor", "admin"])) {
+        sendJson(["error" => "Invalid role."], 400);
+    }
+
+    // A professor with requests waiting for confirmation must finish them first
+    if ($user["role"] === "professor" && $newRole !== "professor") {
+        $check = $pdo->prepare("SELECT COUNT(*) FROM borrow_requests WHERE professor_id = ? AND status = 'Pending'");
+        $check->execute([$id]);
+        if ($check->fetchColumn() > 0) {
+            sendJson(["error" => "This professor still has requests waiting for confirmation."], 409);
+        }
+    }
+
+    $pdo->prepare("UPDATE users SET role = ? WHERE id = ?")->execute([$newRole, $id]);
+    sendJson(["message" => "Role updated."]);
 }
-if ($action === "demote") {
-    $pdo->prepare("UPDATE users SET role = 'student' WHERE id = ?")->execute([$id]);
-    sendJson(["message" => "User changed to student."]);
-}
+
 if ($action === "suspend") {
     $pdo->prepare("UPDATE users SET status = 'Suspended' WHERE id = ?")->execute([$id]);
     sendJson(["message" => "Account suspended."]);

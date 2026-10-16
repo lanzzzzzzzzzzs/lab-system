@@ -8,6 +8,18 @@
 // Each icon is just the inside of an SVG. icon("plus") gives you a full <svg>.
 const iconPaths = {
   arrow: '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
+  bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
+  moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
+  sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
+  testtube: '<path d="M14.5 2v17.5c0 1.4-1.1 2.5-2.5 2.5s-2.5-1.1-2.5-2.5V2"/><path d="M8.5 2h7"/><path d="M14.5 16h-5"/>',
+  tongs: '<path d="M8 2l4 5 4-5"/><path d="M12 7c-4 4-4 9-1 14"/><path d="M12 7c4 4 4 9 1 14"/><circle cx="12" cy="7" r="1"/>',
+  flame: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.07-2.14-.22-4.05 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.15.43-2.29 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+  hotplate: '<rect x="3" y="14" width="18" height="6" rx="2"/><path d="M8 4c-1 1.5 1 2.5 0 4M12 4c-1 1.5 1 2.5 0 4M16 4c-1 1.5 1 2.5 0 4"/>',
+  pipette: '<path d="m2 22 1-1h3l9-9"/><path d="M3 21v-3l9-9"/><path d="m15 6 3.4-3.4a2.1 2.1 0 1 1 3 3L18 9l.4.4a2.1 2.1 0 1 1-3 3l-3.8-3.8a2.1 2.1 0 1 1 3-3l.4.4Z"/>',
+  funnel: '<polygon points="22 3 2 3 10 12.46 10 19 14 21 14 12.46 22 3"/>',
+  goggles: '<circle cx="6" cy="15" r="4"/><circle cx="18" cy="15" r="4"/><path d="M14 15a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M2.5 13 5 7c.7-1.3 1.4-2 3-2"/><path d="M21.5 13 19 7c-.7-1.3-1.5-2-3-2"/>',
+  gloves: '<path d="M18 11V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2a2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2a2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/>',
+  stand: '<path d="M4 21h10"/><path d="M8 21V3"/><path d="M8 7h9a2 2 0 0 1 2 2v1"/><path d="M8 13h6"/>',
   beaker: '<path d="M9 3h6"/><path d="M10 3v5.5L5.8 17a2.8 2.8 0 0 0 2.5 4h7.4a2.8 2.8 0 0 0 2.5-4L14 8.5V3"/><path d="M7.8 15h8.4"/>',
   calendar: '<rect x="3" y="5" width="18" height="16" rx="2"/><path d="M16 3v4M8 3v4M3 10h18"/>',
   check: '<path d="m5 12 4 4L19 6"/>',
@@ -40,7 +52,8 @@ function icon(name, size = "size-5") {
 // The three lists below are filled by loadData() from the database.
 let items = [];        // all equipment
 let categories = [];   // [{ id, name }]
-let requests = [];     // borrowing requests (admin: everyone's, student: only their own)
+let requests = [];     // borrowing requests (admin: all, professor: sent to them, student: their own)
+let professors = [];   // active professors (a student chooses one)
 
 // These variables remember what the user is doing right now.
 let loginRole = "student";    // role card chosen on the login screen
@@ -58,7 +71,7 @@ let usersTab = "All users";   // tab on the Manage users page
 let userQuery = "";           // search text on the Manage users page
 let usersNotice = "";         // green message at the top of the Manage users page
 let submitted = false;        // true for a moment after submitting a request
-let dueDate = dateString(addDays(new Date(), 7));   // default return date: 7 days from today
+let classForm = newClassForm();   // the class details typed in the request drawer
 
 // Shortcut so we don't type document.getElementById every time
 const $ = (id) => document.getElementById(id);
@@ -99,7 +112,36 @@ function parseDate(text) {             // "2026-10-13" (or with a time) -> Date
 }
 
 function formatDate(text) {            // "2026-10-13" -> "Oct 13"
+  if (!text) return "—";
   return parseDate(text).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+}
+
+// "13:00" or "13:00:00" -> "1:00 PM"
+function formatTime(text) {
+  if (!text) return "";
+  const [hours, minutes] = text.split(":").map(Number);
+  const time = new Date();
+  time.setHours(hours, minutes);
+  return time.toLocaleTimeString("en-US", { hour: "numeric", minute: "2-digit" });
+}
+
+// A date and a time next to each other: "Oct 21 · 1:00 PM"
+function whenText(date, time) {
+  return formatDate(date) + (time ? ` · ${formatTime(time)}` : "");
+}
+
+// "2026-10-21 13:00:00" -> "Oct 21 · 1:00 PM" (old records without a time show only the date)
+function formatDateTime(text) {
+  if (!text) return "—";
+  const hasTime = text.length > 10 && !text.endsWith("00:00:00");
+  return hasTime ? whenText(text, text.slice(11, 16)) : formatDate(text);
+}
+
+// How long between two moments: "3 hr" or "2 days"
+function durationText(from, to) {
+  const hours = (new Date(to.replace(" ", "T")) - new Date(from.replace(" ", "T"))) / (60 * 60 * 1000);
+  if (hours < 24) return `${Math.max(1, Math.round(hours))} hr`;
+  return plural(Math.round(hours / 24), "day");
 }
 
 function daysUntil(text) {             // how many days from today (negative = already late)
@@ -120,9 +162,13 @@ function requestNumber(request) {      // 7 -> "REQ-0007"
 // The label shown for a request (an approved one can also be Due soon or Overdue)
 function loanStatus(request) {
   if (request.status !== "Approved") return request.status;
-  const days = daysUntil(request.return_date);
-  if (days < 0) return "Overdue";
-  if (days <= 3) return "Due soon";
+
+  // Late means: the promised date AND time already passed (no time saved = end of that day)
+  const time = request.return_time ? request.return_time.slice(0, 5) : "23:59";
+  const dueAt = new Date(`${request.return_date}T${time}`);
+  if (new Date() > dueAt) return "Overdue";
+
+  if (daysUntil(request.return_date) <= 3) return "Due soon";
   return "Active";
 }
 
@@ -134,15 +180,54 @@ function initialsOf(name) {            // "Alex Morgan" -> "AM"
   return name.split(" ").filter(Boolean).map((word) => word[0]).slice(0, 2).join("").toUpperCase();
 }
 
+// The icons and colors an administrator can choose for equipment: [value, name]
+const iconChoices = [["cube", "Cube"], ["beaker", "Beaker"], ["flask", "Flask"], ["microscope", "Microscope"],
+  ["thermometer", "Thermometer"], ["testtube", "Test tube"], ["tongs", "Tongs"], ["flame", "Flame (burner)"],
+  ["hotplate", "Hot plate"], ["pipette", "Pipette"], ["funnel", "Funnel"], ["goggles", "Safety goggles"],
+  ["gloves", "Gloves"], ["stand", "Stand and clamp"]];
+const colorChoices = ["indigo", "cyan", "amber", "violet", "emerald", "rose", "teal", "orange", "sky", "fuchsia", "lime"]
+  .map((name) => [name, name.charAt(0).toUpperCase() + name.slice(1)]);
+
+// Units of an item that are borrowed right now
+function borrowedUnits(item) {
+  return item.total - item.available - item.inspection;
+}
+
+// What to show in the "Condition" column
+function conditionLabel(item) {
+  if (item.inspection === 0) return "Operational";
+  if (item.inspection >= item.total) return "Inspection";
+  return `${item.inspection} in inspection`;
+}
+
+// The class details a student types in the request drawer
+function newClassForm() {
+  return {
+    professor_id: "",
+    course_code: "",
+    course_name: "",
+    section: "",
+    schedule: "",
+    purpose: "",
+    date_needed: todayString(),
+    time_needed: "08:00",
+    return_date: dateString(addDays(new Date(), 7)),
+    return_time: "17:00"
+  };
+}
+
 // Colored label for a status like "Pending" or "Approved"
 function badge(status) {
+  const labels = { Pending: "Awaiting professor" };   // the name shown to people
   let style = "bg-rose-50 text-rose-600";
   if (["Active", "Returned", "Approved", "Operational"].includes(status)) {
     style = "bg-violet-50 text-violet-700";
   } else if (["Pending", "Due soon"].includes(status)) {
     style = "bg-amber-50 text-amber-700";
+  } else if (status === "Authorized") {
+    style = "bg-indigo-50 text-indigo-700";
   }
-  return `<span class="w-fit rounded-full px-2.5 py-1 text-[0.68rem] font-bold ${style}">${esc(status)}</span>`;
+  return `<span class="w-fit rounded-full px-2.5 py-1 text-[0.68rem] font-bold ${style}">${esc(labels[status] ?? status)}</span>`;
 }
 
 // Title + description + optional button at the top of a page
@@ -241,48 +326,79 @@ function hideAuthMessage() {
   $("login-error").classList.add("hidden");
 }
 
-// Change the texts and fields depending on the form: "login", "register" (student) or "admin"
+// Change the texts and fields depending on the form:
+// "login", "register" (student), "professor" (sign up) or "admin" (sign up)
 function updateAuthTexts() {
-  const admin = authMode === "admin";
   const registering = authMode === "register";
-  const creating = admin || registering;
+  const staff = authMode === "professor" || authMode === "admin";
+  const creating = registering || staff;
 
-  $("auth-eyebrow").textContent = admin ? "Administrator access" : (registering ? "Get started" : "Welcome back");
-  $("auth-title").textContent = admin ? "Create your admin account" : (registering ? "Create your student account" : "Sign in to your account");
-  $("auth-subtitle").textContent = admin
-    ? "Enter your staff details and institutional access code."
-    : (registering ? "Fill in your details to register." : "Choose your workspace and enter your credentials.");
-  $("login-button-text").textContent = admin
-    ? "Create admin account"
-    : (registering ? "Create account" : (loginRole === "student" ? "Sign in as student" : "Sign in as administrator"));
-  $("auth-switch-text").textContent = creating ? "Already have an account?" : "New student?";
-  $("auth-switch-link").textContent = creating ? "Sign in" : "Create an account";
-  $("auth-footnote").innerHTML = admin
-    ? "Administrator creation attempts are logged<br>for institutional security."
-    : "By signing in, you agree to the laboratory's<br>equipment use and safety policies.";
+  const eyebrows = { login: "Welcome back", register: "Get started", professor: "Professor access", admin: "Administrator access" };
+  const titles = {
+    login: "Sign in to your account",
+    register: "Create your student account",
+    professor: "Create your professor account",
+    admin: "Create your admin account"
+  };
+  const subtitles = {
+    login: "Choose your workspace and enter your credentials.",
+    register: "Fill in your details to register.",
+    professor: "Enter your staff details and institutional access code.",
+    admin: "Enter your staff details and institutional access code."
+  };
+  const buttons = {
+    register: "Create account",
+    professor: "Create professor account",
+    admin: "Create admin account"
+  };
+  const roleNames = { student: "student", professor: "professor", admin: "administrator" };
 
-  $("email-label").textContent = admin ? "Work email address" : "Email address";
-  $("login-email").placeholder = admin ? "name@labtrack.edu" : (loginRole === "admin" && !registering ? "admin@labtrack.edu" : "student@labtrack.edu");
+  $("auth-eyebrow").textContent = eyebrows[authMode];
+  $("auth-title").textContent = titles[authMode];
+  $("auth-subtitle").textContent = subtitles[authMode];
+  $("login-button-text").textContent = buttons[authMode] ?? `Sign in as ${roleNames[loginRole]}`;
+
+  // The link under the button
+  const links = {
+    student: ["New student?", "Create an account"],
+    professor: ["Need professor access?", "Create a professor account"],
+    admin: ["Need administrator access?", "Create an admin account"]
+  };
+  [$("auth-switch-text").textContent, $("auth-switch-link").textContent] =
+    creating ? ["Already have an account?", "Sign in"] : links[loginRole];
+
+  const footnotes = {
+    professor: "Professor creation attempts are logged<br>for institutional security.",
+    admin: "Administrator creation attempts are logged<br>for institutional security."
+  };
+  $("auth-footnote").innerHTML = footnotes[authMode] ?? "By signing in, you agree to the laboratory's<br>equipment use and safety policies.";
+
+  $("email-label").textContent = staff ? "Work email address" : "Email address";
+  $("login-email").placeholder = staff ? "name@labtrack.edu" : (registering ? "student@labtrack.edu" : `${loginRole}@labtrack.edu`);
   $("login-password").placeholder = creating ? "At least 8 characters" : "Enter your password";
 
   // Sign up fields
   $("register-fields").classList.toggle("hidden", !creating);
-  $("register-name").placeholder = admin ? "Dr. Jordan Davis" : "Alex Morgan";
-  $("register-id-label").textContent = admin ? "Staff ID" : "Student ID (optional)";
-  $("register-id").placeholder = admin ? "ADM-0014" : "STU-2024-081";
-  $("register-id-box").classList.toggle("sm:col-span-2", !admin);
-  $("register-department-box").classList.toggle("hidden", !admin);
-  $("admin-code-box").classList.toggle("hidden", !admin);
+  $("register-name").placeholder = { professor: "Prof. Elise Grant", admin: "Dr. Jordan Davis" }[authMode] ?? "Alex Morgan";
+  $("register-id-label").textContent = staff ? "Staff ID" : "Student ID";
+  $("register-id").placeholder = { professor: "PROF-0008", admin: "ADM-0014" }[authMode] ?? "STU-2024-081";
+  $("register-department").placeholder = { professor: "Biological Sciences", admin: "Laboratory Services" }[authMode] ?? "Biochemistry";
+  $("admin-code-box").classList.toggle("hidden", !staff);
+  $("code-label").textContent = authMode === "professor" ? "Professor access code" : "Administrator access code";
+
+  // The sign in button is darker blue for professors, as in the design
+  $("login-button").classList.toggle("bg-slate-800", authMode === "professor");
+  $("login-button").classList.toggle("bg-slate-950", authMode !== "professor");
 
   // Sign in only parts
   $("role-cards").classList.toggle("hidden", creating);
   $("login-extras").classList.toggle("hidden", creating);
-  $("auth-admin-link-row").classList.toggle("hidden", authMode !== "login");
-  $("auth-back").classList.toggle("hidden", !admin);
+  $("auth-back").classList.toggle("hidden", !staff);
 
-  // The dark left side has two versions
-  $("left-default").classList.toggle("hidden", admin);
-  $("left-admin").classList.toggle("hidden", !admin);
+  // The dark left side has three versions
+  $("left-default").classList.toggle("hidden", staff);
+  $("left-admin").classList.toggle("hidden", authMode !== "admin");
+  $("left-professor").classList.toggle("hidden", authMode !== "professor");
 }
 
 function setAuthMode(mode) {
@@ -291,14 +407,21 @@ function setAuthMode(mode) {
   updateAuthTexts();
 }
 
+// The link under the button: open the right sign up form (or go back to sign in)
 function toggleAuthMode() {
-  setAuthMode(authMode === "login" ? "register" : "login");
+  if (authMode !== "login") {
+    setAuthMode("login");
+    return;
+  }
+  const signUpForms = { student: "register", professor: "professor", admin: "admin" };
+  setAuthMode(signUpForms[loginRole]);
 }
 
 function selectRole(newRole) {
   loginRole = newRole;
-  $("role-student").classList.toggle("active", newRole === "student");
-  $("role-admin").classList.toggle("active", newRole === "admin");
+  ["student", "professor", "admin"].forEach((name) => {
+    $(`role-${name}`).classList.toggle("active", name === newRole);
+  });
   updateAuthTexts();
   hideAuthMessage();
 }
@@ -343,29 +466,35 @@ async function handleLogin(event) {
 }
 
 async function registerUser(email, password) {
-  const admin = authMode === "admin";
+  const type = authMode === "register" ? "student" : authMode;   // "student", "professor" or "admin"
+  const staff = type !== "student";
   const fullName = $("register-name").value.trim();
   const idNumber = $("register-id").value.trim();
   const department = $("register-department").value.trim();
-  const adminCode = $("register-admin-code").value.trim();
+  const accessCode = $("register-code").value.trim();
 
   if (fullName === "") {
     showAuthMessage("Please enter your full name.");
     return;
   }
-  if (admin && (idNumber === "" || department === "" || adminCode === "")) {
+  // The ID and the department are required for everyone
+  if (idNumber === "" || department === "") {
+    showAuthMessage(staff ? "Please complete all required fields." : "Please enter your student ID and department.");
+    return;
+  }
+  if (staff && accessCode === "") {
     showAuthMessage("Please complete all required fields.");
     return;
   }
 
   const { ok, result } = await postJson("api/register.php", {
-    account_type: admin ? "admin" : "student",
+    account_type: type,
     full_name: fullName,
     email,
     password,
     student_id: idNumber,
     department,
-    admin_code: adminCode
+    access_code: accessCode
   });
 
   if (!ok) {
@@ -375,9 +504,9 @@ async function registerUser(email, password) {
 
   // Success: go back to the sign in form, with the matching card selected
   authMode = "login";
-  selectRole(admin ? "admin" : "student");
+  selectRole(type);
   $("login-password").value = "";
-  $("register-admin-code").value = "";
+  $("register-code").value = "";
   showAuthMessage(result.message, false);
 }
 
@@ -385,7 +514,8 @@ async function registerUser(email, password) {
 async function startSession(user) {
   currentUser = user;
   role = user.role;
-  panel = role === "student" ? "browse" : "overview";
+  const firstPages = { student: "browse", professor: "authorizations", admin: "overview" };
+  panel = firstPages[role];
 
   await loadData();
   if (currentUser === null) return;   // the session expired while loading
@@ -420,6 +550,7 @@ async function logout() {
   $("login-password").value = "";
   closeBasket();
   closeModal();
+  loadPublicStats();
 }
 
 
@@ -440,6 +571,7 @@ async function loadData() {
     const [itemsData, requestsData, usersData] = await Promise.all(responses.map((response) => response.json()));
 
     categories = itemsData.categories;
+    professors = itemsData.professors ?? [];
     items = itemsData.items.map((row) => ({
       id: Number(row.id),
       name: row.name,
@@ -448,7 +580,7 @@ async function loadData() {
       category_id: Number(row.category_id),
       available: Number(row.available_units),
       total: Number(row.total_units),
-      condition: row.condition_status,
+      inspection: Number(row.inspection_units),
       icon: row.icon,
       color: row.color,
       created_at: row.created_at
@@ -469,6 +601,7 @@ function render() {
   renderHeader();
   renderContent();
   renderBasket();
+  renderBell();
 }
 
 // Sidebar links
@@ -479,18 +612,23 @@ function navButton(id, iconName, label, extra = "") {
 }
 
 function renderNav() {
-  const pending = requests.filter((r) => r.status === "Pending").length;
+  const waitingProfessor = requests.filter((r) => r.status === "Pending").length;
+  const waitingLab = requests.filter((r) => r.status === "Authorized").length;
   const borrowed = requests.filter((r) => r.status === "Approved").length;
+  const yellowCount = (count) => `<span class="ml-auto rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-slate-950">${count}</span>`;
   let links = "";
 
   if (role === "student") {
     links += navButton("browse", "dashboard", "Browse equipment");
     links += navButton("borrowings", "list", "My borrowings", `<span class="ml-auto rounded-full bg-slate-800 px-2 py-0.5 text-xs">${borrowed}</span>`);
     links += navButton("history", "history", "Request history");
+  } else if (role === "professor") {
+    links += navButton("authorizations", "check", "Class authorizations", yellowCount(waitingProfessor));
+    links += navButton("approvals", "history", "Approval history");
   } else {
     links += navButton("overview", "dashboard", "Overview");
     links += navButton("inventory", "cube", "Inventory");
-    links += navButton("requests", "list", "Borrowing requests", `<span class="ml-auto rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-slate-950">${pending}</span>`);
+    links += navButton("requests", "list", "Borrowing requests", yellowCount(waitingLab));
     links += navButton("users", "shield", "Manage users");
     links += navButton("lending", "history", "Lending history");
   }
@@ -505,11 +643,11 @@ function renderNav() {
 
 function renderUserCard() {
   const isStudent = role === "student";
-  const subtitle = isStudent ? (currentUser.department || "Student") : "Laboratory administrator";
+  const subtitle = role === "admin" ? "Laboratory administrator" : (currentUser.department || (isStudent ? "Student" : "Professor"));
 
   // Units this student has borrowed or is waiting for
   const inUse = requests
-    .filter((r) => ["Pending", "Approved"].includes(r.status))
+    .filter((r) => ["Pending", "Authorized", "Approved"].includes(r.status))
     .reduce((sum, r) => sum + r.quantity, 0);
 
   $("user-card").innerHTML = `
@@ -532,8 +670,8 @@ function renderHeader() {
   const weekday = now.toLocaleDateString("en-US", { weekday: "long" });
   const month = now.toLocaleDateString("en-US", { month: "long" });
 
-  $("greeting").textContent = isStudent ? `Good ${timeOfDay}, ${currentUser.full_name.split(" ")[0]}` : "Admin dashboard";
-  $("today").textContent = isStudent ? `${weekday}, ${now.getDate()} ${month}` : "Laboratory operations";
+  $("greeting").textContent = isStudent ? `Good ${timeOfDay}, ${currentUser.full_name.split(" ")[0]}` : (role === "professor" ? "Professor workspace" : "Admin dashboard");
+  $("today").textContent = isStudent ? `${weekday}, ${now.getDate()} ${month}` : (role === "professor" ? "Class request authorizations" : "Laboratory operations");
   $("request-btn").classList.toggle("hidden", !isStudent);
 
   // The search box in the top bar is only for students (desktop screens)
@@ -553,6 +691,8 @@ const pages = {
   guide: () => guidePage(),
   contact: () => contactPage(),
   users: () => usersPage(),
+  authorizations: () => authorizationsPage(),
+  approvals: () => approvalsPage(),
   settings: () => settingsPage()
 };
 
@@ -577,11 +717,11 @@ async function go(newPanel) {
 
 // ---------- 7. STUDENT: BROWSE EQUIPMENT ----------
 function renderBrowse() {
-  const readyCount = items.reduce((sum, item) => item.condition === "Operational" ? sum + item.available : sum, 0);
+  const readyCount = items.reduce((sum, item) => sum + item.available, 0);
   const unitsOf = (list) => list.reduce((sum, r) => sum + r.quantity, 0);
   const borrowed = requests.filter((r) => r.status === "Approved");
   const dueThisWeek = borrowed.filter((r) => daysUntil(r.return_date) <= 7);
-  const pending = requests.filter((r) => r.status === "Pending");
+  const pending = requests.filter((r) => ["Pending", "Authorized"].includes(r.status));
 
   const stats = [
     ["Available now", readyCount, "cube", "emerald", "Items ready to borrow"],
@@ -652,7 +792,7 @@ function renderItems() {
 
   $("item-grid").innerHTML = visible.map((item) => {
     const selected = inBasket(item.id);
-    const unavailable = item.available === 0 || item.condition !== "Operational";
+    const unavailable = item.available === 0;
 
     let buttonStyle = "bg-slate-950 text-white hover:bg-violet-400 hover:text-slate-950";
     if (selected) buttonStyle = "bg-violet-400 text-slate-950";
@@ -676,7 +816,7 @@ function renderItems() {
           <div class="mt-5 flex items-center justify-between border-t border-slate-100 pt-4">
             <div>
               <div class="text-xs font-bold ${unavailable ? "text-rose-500" : "text-violet-600"}">${unavailable ? "Currently unavailable" : `${item.available} available`}</div>
-              <div class="mt-0.5 text-[0.68rem] text-slate-400">${item.total} units total</div>
+              <div class="mt-0.5 text-[0.68rem] text-slate-400">${item.total} units total${item.inspection > 0 ? ` · ${item.inspection} in inspection` : ""}</div>
             </div>
             <button ${unavailable ? "disabled" : ""} onclick="toggleBasket(${item.id})"
               class="flex size-10 items-center justify-center rounded-xl transition ${buttonStyle}"
@@ -748,8 +888,73 @@ function changeQty(id, change) {
   if (entry) setQty(id, entry.qty + change);
 }
 
-function setDueDate(value) {
-  dueDate = value;
+// Remember what the student types in the class details
+function setClass(field, value) {
+  classForm[field] = value;
+
+  // the return date can never be before the date needed
+  if (field === "date_needed" && classForm.return_date < value) {
+    classForm.return_date = value;
+    renderBasket();
+  }
+}
+
+// The "Class details" part of the drawer: the professor has to confirm these
+function classDetailsHtml() {
+  if (professors.length === 0) {
+    return `<div class="mt-7 rounded-2xl bg-amber-50 p-4 text-xs leading-5 text-amber-800">No professors are registered yet. Ask the administrator to create a professor account before you request equipment.</div>`;
+  }
+
+  const fieldStyle = "mt-1.5 h-10 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm font-normal outline-none focus:border-violet-500";
+
+  const textInput = (field, label, placeholder) => `
+    <label class="block text-xs font-bold text-slate-600">${label}
+      <input value="${esc(classForm[field])}" oninput="setClass('${field}', this.value)" placeholder="${placeholder}" class="${fieldStyle}">
+    </label>`;
+
+  const dateInput = (field, label, min) => `
+    <label class="block text-xs font-bold text-slate-600">${label}
+      <input type="date" value="${classForm[field]}" min="${min}" onchange="setClass('${field}', this.value)" class="${fieldStyle}">
+    </label>`;
+
+  const timeInput = (field, label) => `
+    <label class="block text-xs font-bold text-slate-600">${label}
+      <input type="time" value="${classForm[field]}" onchange="setClass('${field}', this.value)" class="${fieldStyle}">
+    </label>`;
+
+  const professorOptions = professors.map((p) =>
+    `<option value="${p.id}" ${String(p.id) === String(classForm.professor_id) ? "selected" : ""}>${esc(p.full_name)}${p.department ? " · " + esc(p.department) : ""}</option>`).join("");
+
+  return `
+    <div class="mt-7 space-y-4 rounded-2xl bg-slate-50 p-4">
+      <div>
+        <h3 class="text-sm font-bold text-slate-950">Class details</h3>
+        <p class="mt-1 text-xs leading-5 text-slate-500">Your professor must confirm that this request supports your laboratory class.</p>
+      </div>
+      <label class="block text-xs font-bold text-slate-600">Professor
+        <select onchange="setClass('professor_id', this.value)" class="${fieldStyle}">
+          <option value="">Choose your professor</option>
+          ${professorOptions}
+        </select>
+      </label>
+      <div class="grid grid-cols-2 gap-3">
+        ${textInput("course_code", "Course code", "BIOC 312")}
+        ${textInput("course_name", "Course name", "Biochemistry")}
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        ${textInput("section", "Section", "Section B")}
+        ${textInput("schedule", "Schedule", "Wed · 1:00–4:00 PM")}
+      </div>
+      ${textInput("purpose", "Laboratory purpose", "Cell structure practical")}
+      <div class="grid grid-cols-2 gap-3">
+        ${dateInput("date_needed", "Date needed", todayString())}
+        ${timeInput("time_needed", "Time needed")}
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        ${dateInput("return_date", "Return date", classForm.date_needed)}
+        ${timeInput("return_time", "Return time")}
+      </div>
+    </div>`;
 }
 
 function renderBasket() {
@@ -797,11 +1002,7 @@ function renderBasket() {
             </div>
           </div>`).join("")}
       </div>
-      <div class="mt-7 rounded-2xl bg-slate-50 p-4">
-        <label class="text-xs font-bold text-slate-600" for="return-date">Expected return date</label>
-        <input id="return-date" type="date" value="${dueDate}" min="${todayString()}" onchange="setDueDate(this.value)"
-          class="mt-2 h-11 w-full rounded-xl border border-slate-200 bg-white px-3 text-sm outline-none focus:border-violet-500">
-      </div>`;
+      ${classDetailsHtml()}`;
   }
 
   const button = $("submit-btn");
@@ -823,13 +1024,24 @@ function setDrawer(open) {
 
 // Send the request to PHP (CREATE)
 async function submitRequest() {
+  // every class detail must be filled in
+  const fields = ["professor_id", "course_code", "course_name", "section", "schedule", "purpose", "date_needed", "time_needed", "return_date", "return_time"];
+  if (fields.some((field) => String(classForm[field]).trim() === "")) {
+    showToast("Please complete the class details.", true);
+    return;
+  }
+  if (`${classForm.return_date} ${classForm.return_time}` <= `${classForm.date_needed} ${classForm.time_needed}`) {
+    showToast("The return must be after the time needed.", true);
+    return;
+  }
+
   submitted = true;
   renderBasket();
 
   try {
     const { ok, result } = await postJson("api/borrow.php", {
       items: basket.map((entry) => ({ id: entry.id, quantity: entry.qty })),
-      return_date: dueDate
+      ...classForm
     });
 
     if (!ok) {
@@ -842,6 +1054,7 @@ async function submitRequest() {
     showToast(result.message);
     setTimeout(async () => {
       basket = [];
+      classForm = newClassForm();
       submitted = false;
       closeBasket();
       await loadData();
@@ -911,8 +1124,8 @@ function filterRecords(text) {
 // ---------- 11. STUDENT: MY BORROWINGS AND REQUEST HISTORY ----------
 function borrowingsPage() {
   const active = requests.filter((r) => r.status === "Approved");
-  const overdue = active.filter((r) => daysUntil(r.return_date) < 0);
-  const dueSoon = active.filter((r) => daysUntil(r.return_date) >= 0 && daysUntil(r.return_date) <= 7);
+  const overdue = active.filter((r) => loanStatus(r) === "Overdue");
+  const dueSoon = active.filter((r) => loanStatus(r) !== "Overdue" && daysUntil(r.return_date) <= 7);
 
   // Yellow notice at the top
   let banner = "";
@@ -925,7 +1138,7 @@ function borrowingsPage() {
   }
 
   const rows = active.map((r) =>
-    recordRow(itemLabel(r), r.code, `Borrowed ${formatDate(r.date_reviewed)}`, `Due ${formatDate(r.return_date)}`, badge(loanStatus(r)))
+    recordRow(itemLabel(r), r.code, `Borrowed ${formatDateTime(r.date_reviewed)}`, `Due ${whenText(r.return_date, r.return_time)}`, badge(loanStatus(r)))
   ).join("");
 
   const action = `<button onclick="go('browse')" class="flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-sm font-bold text-white">${icon("plus", "size-4")} New request</button>`;
@@ -951,13 +1164,11 @@ function bannerHtml(title, text) {
 
 // The two info columns of a history row depend on the status
 function historyInfo(r) {
-  if (r.status === "Approved") return [`Approved ${formatDate(r.date_reviewed)}`, `Due ${formatDate(r.return_date)}`];
-  if (r.status === "Declined") return [`Declined ${formatDate(r.date_reviewed)}`, "Not approved"];
-  if (r.status === "Returned") {
-    const days = Math.round((parseDate(r.date_returned) - parseDate(r.date_reviewed)) / (24 * 60 * 60 * 1000));
-    return [`Returned ${formatDate(r.date_returned)}`, plural(days, "day")];
-  }
-  return [`Requested ${formatDate(r.date_requested)}`, `Return by ${formatDate(r.return_date)}`];
+  if (r.status === "Authorized") return [`Authorized ${formatDateTime(r.date_confirmed)}`, "Waiting for the laboratory"];
+  if (r.status === "Approved") return [`Borrowed ${formatDateTime(r.date_reviewed)}`, `Due ${whenText(r.return_date, r.return_time)}`];
+  if (r.status === "Declined") return [`Declined ${formatDateTime(r.date_reviewed)}`, "Not approved"];
+  if (r.status === "Returned") return [`Returned ${formatDateTime(r.date_returned)}`, `Kept ${durationText(r.date_reviewed, r.date_returned)}`];
+  return [`Requested ${formatDate(r.date_requested)}`, r.professor ? `Waiting for ${r.professor}` : `Return by ${whenText(r.return_date, r.return_time)}`];
 }
 
 function historyPage() {
@@ -973,11 +1184,17 @@ function historyPage() {
 
 // ---------- 12. ADMIN: OVERVIEW ----------
 
-// Buttons for a request: approve / decline, mark returned, or just a status label
+// Buttons for a request (administrator):
+// waiting for the professor -> only Decline,  authorized -> Decline + Approve,  borrowed -> Mark returned
 function requestActions(r) {
+  const declineButton = `<button onclick="updateRequest(${r.id}, 'decline')" class="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500" aria-label="Decline ${requestNumber(r)}">${icon("close", "size-4")}</button>`;
+
   if (r.status === "Pending") {
+    return `${badge(r.status)} ${declineButton}`;
+  }
+  if (r.status === "Authorized") {
     return `
-      <button onclick="updateRequest(${r.id}, 'decline')" class="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-400 transition hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500" aria-label="Decline ${requestNumber(r)}">${icon("close", "size-4")}</button>
+      ${declineButton}
       <button onclick="updateRequest(${r.id}, 'approve')" class="flex size-9 items-center justify-center rounded-lg bg-violet-400 text-slate-950 transition hover:bg-violet-300" aria-label="Approve ${requestNumber(r)}">${icon("check", "size-4")}</button>`;
   }
   if (r.status === "Approved") {
@@ -1006,12 +1223,12 @@ async function updateRequest(id, action) {
 
 function overviewPage() {
   const totalUnits = items.reduce((sum, item) => sum + item.total, 0);
-  const goodUnits = items.reduce((sum, item) => item.condition === "Operational" ? sum + item.total : sum, 0);
+  const goodUnits = items.reduce((sum, item) => sum + item.total - item.inspection, 0);
   const health = totalUnits === 0 ? 0 : Math.round((goodUnits / totalUnits) * 100);
   const addedThisMonth = items.filter((item) => item.created_at.slice(0, 7) === todayString().slice(0, 7)).length;
 
   const borrowed = requests.filter((r) => r.status === "Approved").reduce((sum, r) => sum + r.quantity, 0);
-  const pending = requests.filter((r) => r.status === "Pending").length;
+  const pending = requests.filter((r) => r.status === "Authorized").length;   // waiting for the laboratory
   const overdue = requests.filter((r) => loanStatus(r) === "Overdue").length;
   const percentBorrowed = totalUnits === 0 ? 0 : Math.round((borrowed / totalUnits) * 100);
 
@@ -1057,9 +1274,11 @@ function overviewPage() {
   const addButton = `<button onclick="editItem(0)" class="flex h-11 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 text-sm font-bold text-white transition hover:bg-slate-800">${icon("plus", "size-4")} Add equipment</button>`;
 
   return `
-    ${pageHeader("Admin workspace", "LabTrack overview", "Manage equipment, review requests, and monitor lending activity.", addButton)}
+    ${pageHeader("Admin workspace", "Laboratory overview", "Manage equipment, review requests, and monitor lending activity.", addButton)}
 
     <section class="grid grid-cols-2 gap-3 pb-7 lg:grid-cols-4">${statCards(stats)}</section>
+
+    ${chartsHtml()}
 
     <section class="grid gap-5 xl:grid-cols-[1fr_20rem]">
       <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -1093,23 +1312,100 @@ function overviewPage() {
 }
 
 
+// ---------- 12b. ADMIN: CHARTS ----------
+// The charts are drawn with plain HTML and CSS: the width of each bar is a percentage.
+function chartsHtml() {
+  // --- Requests by status ---
+  const statuses = [
+    ["Approved", "Approved", "#8b5cf6"],
+    ["Pending", "Awaiting professor", "#fbbf24"],
+    ["Authorized", "Authorized", "#22d3ee"],
+    ["Returned", "Returned", "#818cf8"],
+    ["Declined", "Declined", "#fb7185"]
+  ];
+  const counts = statuses.map(([status, label, color]) => ({
+    label, color, count: requests.filter((r) => r.status === status).length
+  }));
+  const biggest = Math.max(...counts.map((entry) => entry.count), 1);   // the longest bar is 100%
+  const total = counts.reduce((sum, entry) => sum + entry.count, 0);
+
+  const statusBars = counts.map(({ label, color, count }) => `
+    <div>
+      <div class="flex items-center justify-between text-xs font-semibold text-slate-700"><span>${label}</span><span class="text-slate-950">${count}</span></div>
+      <div class="mt-2 h-2 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full" style="width: ${(count / biggest) * 100}%; background: ${color}"></div></div>
+    </div>`).join("");
+
+  // one bar made of colored parts (each part = its share of all requests)
+  const stacked = counts.map(({ color, count }) =>
+    count === 0 ? "" : `<div class="h-full" style="width: ${(count / total) * 100}%; background: ${color}"></div>`).join("");
+
+  // --- Most-borrowed equipment: how many requests each item has ---
+  const requestCounts = {};
+  requests.forEach((r) => { requestCounts[r.equipment_id] = (requestCounts[r.equipment_id] || 0) + 1; });
+
+  const ranked = items
+    .map((item) => ({ item, count: requestCounts[item.id] || 0 }))
+    .filter((entry) => entry.count > 0)
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 4);
+  const top = ranked.length > 0 ? ranked[0].count : 1;
+
+  const topRows = ranked.map(({ item, count }, index) => `
+    <div class="flex items-center gap-4">
+      <span class="w-5 text-xs font-bold text-slate-400">${String(index + 1).padStart(2, "0")}</span>
+      <div class="min-w-0 flex-1">
+        <div class="flex items-center justify-between gap-2 text-xs font-semibold"><span class="truncate text-slate-900">${esc(item.name)}</span><span class="text-violet-600">${count}</span></div>
+        <div class="mt-2 h-1.5 overflow-hidden rounded-full bg-slate-100"><div class="h-full rounded-full bg-violet-500" style="width: ${(count / top) * 100}%"></div></div>
+      </div>
+      <span class="w-14 text-right text-[0.65rem] text-slate-400">${esc(item.code)}</span>
+    </div>`).join("");
+
+  return `
+    <section class="mb-7 grid gap-5 lg:grid-cols-2">
+      <div class="rounded-2xl border border-slate-200 bg-white p-6">
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="font-bold text-slate-950">Requests by status</h2>
+            <p class="mt-1 text-xs text-slate-400">Current request distribution</p>
+          </div>
+          <span class="rounded-full bg-slate-100 px-2.5 py-1 text-[0.65rem] font-bold text-slate-500">Live data</span>
+        </div>
+        <div class="mt-6 space-y-5">${statusBars}</div>
+        <div class="mt-6 flex h-2 overflow-hidden rounded-full bg-slate-100">${stacked}</div>
+      </div>
+
+      <div class="rounded-2xl border border-slate-200 bg-white p-6">
+        <div class="flex items-start justify-between">
+          <div>
+            <h2 class="font-bold text-slate-950">Most-borrowed equipment</h2>
+            <p class="mt-1 text-xs text-slate-400">Requests during the current term</p>
+          </div>
+          <span class="text-violet-600">${icon("history", "size-5")}</span>
+        </div>
+        <div class="mt-6 space-y-5">${topRows === "" ? `<p class="text-sm text-slate-500">No requests yet.</p>` : topRows}</div>
+      </div>
+    </section>`;
+}
+
+
 // ---------- 13. ADMIN: INVENTORY (add, edit, delete equipment) ----------
 
 // Counts in units. They add up: available + borrowed + maintenance = all.
 function inventoryCounts() {
-  const good = items.filter((item) => item.condition === "Operational");
+  const sum = (field) => items.reduce((total, item) => total + field(item), 0);
   return {
-    All: items.reduce((sum, item) => sum + item.total, 0),
-    Available: good.reduce((sum, item) => sum + item.available, 0),
-    Borrowed: good.reduce((sum, item) => sum + (item.total - item.available), 0),
-    Maintenance: items.filter((item) => item.condition !== "Operational").reduce((sum, item) => sum + item.total, 0)
+    All: sum((item) => item.total),
+    Available: sum((item) => item.available),
+    Borrowed: sum((item) => borrowedUnits(item)),
+    Maintenance: sum((item) => item.inspection)
   };
 }
 
+// An item shows up in a tab if at least one of its units fits
 function inventoryRows() {
-  if (inventoryTab === "Available") return items.filter((item) => item.condition === "Operational" && item.available > 0);
-  if (inventoryTab === "Borrowed") return items.filter((item) => item.condition === "Operational" && item.available < item.total);
-  if (inventoryTab === "Maintenance") return items.filter((item) => item.condition !== "Operational");
+  if (inventoryTab === "Available") return items.filter((item) => item.available > 0);
+  if (inventoryTab === "Borrowed") return items.filter((item) => borrowedUnits(item) > 0);
+  if (inventoryTab === "Maintenance") return items.filter((item) => item.inspection > 0);
   return items;
 }
 
@@ -1134,7 +1430,7 @@ function inventoryPage() {
       </div>
       <span class="text-xs font-semibold text-slate-500">${esc(item.category)}</span>
       <span class="text-xs font-bold ${item.available ? "text-violet-600" : "text-rose-500"}">${item.available} / ${item.total}</span>
-      <span class="w-fit rounded-full bg-violet-50 px-2.5 py-1 text-[0.68rem] font-bold text-violet-700">${esc(item.condition)}</span>
+      <span class="w-fit rounded-full bg-violet-50 px-2.5 py-1 text-[0.68rem] font-bold text-violet-700">${esc(conditionLabel(item))}</span>
       <button onclick="editItem(${item.id})" class="flex size-9 items-center justify-center rounded-lg border border-slate-200 text-slate-500 hover:bg-slate-50" aria-label="Edit ${esc(item.name)}">${icon("settings", "size-4")}</button>
     </div>`).join("");
 
@@ -1154,13 +1450,10 @@ function inventoryPage() {
 function editItem(id) {
   const item = items.find((entry) => entry.id === id) ?? {
     id: 0, name: "", code: "", category_id: categories.length > 0 ? categories[0].id : 0,
-    total: 1, available: 1, condition: "Operational", icon: "cube", color: "indigo"
+    total: 1, inspection: 0, icon: "cube", color: "indigo"
   };
 
   const categoryOptions = categories.map((c) => [c.id, c.name]);
-  const conditionOptions = ["Operational", "Inspection", "Maintenance"].map((name) => [name, name]);
-  const iconOptions = ["cube", "beaker", "flask", "microscope", "thermometer"].map((name) => [name, name]);
-  const colorOptions = ["indigo", "cyan", "amber", "violet", "emerald", "rose"].map((name) => [name, name]);
 
   openModal(id === 0 ? "Add equipment" : "Edit equipment", `
     <div class="space-y-4">
@@ -1169,12 +1462,12 @@ function editItem(id) {
       ${selectField("Category", "item-category", categoryOptions, item.category_id)}
       <div class="grid grid-cols-2 gap-4">
         ${textField("Total units", "item-total", item.total, "number", 'min="1"')}
-        ${textField("Available units", "item-available", item.available, "number", 'min="0"')}
+        ${textField("Units in inspection", "item-inspection", item.inspection, "number", 'min="0"')}
       </div>
-      ${selectField("Condition", "item-condition", conditionOptions, item.condition)}
+      <p class="text-xs leading-5 text-slate-500">Only the units in inspection or maintenance are blocked. The others can still be borrowed. Available units are worked out for you: total − in inspection − borrowed${id !== 0 ? ` (${borrowedUnits(item)} borrowed now)` : ""}.</p>
       <div class="grid grid-cols-2 gap-4">
-        ${selectField("Icon", "item-icon", iconOptions, item.icon)}
-        ${selectField("Card color", "item-color", colorOptions, item.color)}
+        ${selectField("Icon", "item-icon", iconChoices, item.icon)}
+        ${selectField("Card color", "item-color", colorChoices, item.color)}
       </div>
       <div class="flex items-center gap-3 pt-2">
         <button onclick="saveItem(${item.id})" class="rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800">Save</button>
@@ -1192,8 +1485,7 @@ async function saveItem(id) {
     code: $("item-code").value.trim(),
     category_id: Number($("item-category").value),
     total_units: Number($("item-total").value),
-    available_units: Number($("item-available").value),
-    condition_status: $("item-condition").value,
+    inspection_units: Number($("item-inspection").value),
     icon: $("item-icon").value,
     color: $("item-color").value
   };
@@ -1218,6 +1510,7 @@ async function saveItem(id) {
   }
 }
 
+
 // DELETE equipment
 async function deleteItem(id) {
   if (!confirm("Delete this equipment? This cannot be undone.")) return;
@@ -1241,7 +1534,7 @@ async function deleteItem(id) {
 // ---------- 14. ADMIN: BORROWING REQUESTS AND LENDING HISTORY ----------
 function requestsPage() {
   const rows = requests.map((r) =>
-    recordRow(r.student, requestNumber(r), itemLabel(r), `Return ${formatDate(r.return_date)}`, requestActions(r))
+    recordRow(r.student, `${requestNumber(r)}${r.professor ? " · " + r.professor : ""}`, itemLabel(r), `Return ${whenText(r.return_date, r.return_time)}`, requestActions(r))
   ).join("");
 
   return pageHeader("Admin workspace", "Borrowing requests", "Review and process requests submitted by students.") +
@@ -1253,8 +1546,8 @@ function lendingPage() {
   const lent = requests.filter((r) => r.status === "Approved" || r.status === "Returned");
 
   const rows = lent.map((r) => {
-    let info1 = `Borrowed ${formatDate(r.date_reviewed)}`;
-    let info2 = `Due ${formatDate(r.return_date)}`;
+    let info1 = `Borrowed ${formatDateTime(r.date_reviewed)}`;
+    let info2 = `Due ${whenText(r.return_date, r.return_time)}`;
     if (r.status === "Returned") {
       [info1, info2] = historyInfo(r);
     }
@@ -1266,20 +1559,121 @@ function lendingPage() {
 }
 
 
-// ---------- 14b. ADMIN: MANAGE USERS ----------
+// ---------- 14b. PROFESSOR: CLASS AUTHORIZATIONS ----------
+
+// The three lines about the class (course, schedule, purpose)
+function classColumn(r) {
+  return `
+    <div class="min-w-0">
+      <div class="text-sm font-bold text-slate-900">${esc(r.course_code)} · ${esc(r.course_name)}</div>
+      <div class="mt-1 text-xs text-slate-500">${r.section ? esc(r.section) + " · " : ""}${esc(r.schedule)}</div>
+      <div class="mt-1 text-xs text-violet-600">${esc(r.purpose)}</div>
+    </div>`;
+}
+
+// One row of the professor's lists. "rightHtml" is a badge or the two buttons.
+function professorRow(r, rightHtml) {
+  return `
+    <div class="grid gap-4 p-5 md:grid-cols-[1.1fr_1.4fr_1fr_auto] md:items-center">
+      <div class="flex items-center gap-3">
+        <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-600">${esc(initialsOf(r.student))}</div>
+        <div class="min-w-0">
+          <div class="truncate text-sm font-bold text-slate-900">${esc(r.student)}</div>
+          <div class="mt-0.5 text-xs text-slate-400">${requestNumber(r)} · Needed ${whenText(r.date_needed, r.time_needed)}</div>
+        </div>
+      </div>
+      ${classColumn(r)}
+      <div>
+        <div class="text-sm font-semibold text-slate-700">${esc(itemLabel(r))}</div>
+        <div class="mt-0.5 text-xs text-slate-400">${esc(r.code)}</div>
+      </div>
+      <div class="flex items-center gap-2 md:justify-end">${rightHtml}</div>
+    </div>`;
+}
+
+function authorizationsPage() {
+  const waiting = requests.filter((r) => r.status === "Pending");
+  const approved = requests.filter((r) => ["Authorized", "Approved", "Returned"].includes(r.status)).length;
+  const students = new Set(requests.map((r) => r.user_id)).size;
+  const thisWeek = requests.filter((r) => r.date_needed && daysUntil(r.date_needed) >= 0 && daysUntil(r.date_needed) <= 6).length;
+
+  const stats = [
+    ["Awaiting review", waiting.length, "clock", "amber", ""],
+    ["Approved", approved, "check", "violet", ""],
+    ["Students", students, "beaker", "indigo", ""],
+    ["This week", thisWeek, "calendar", "violet", ""]
+  ];
+
+  const buttons = (r) => `
+    <button onclick="reviewRequest(${r.id}, 'decline')" class="rounded-xl border border-slate-200 px-4 py-2.5 text-xs font-bold text-rose-600 hover:bg-rose-50">Decline</button>
+    <button onclick="reviewRequest(${r.id}, 'authorize')" class="flex items-center gap-2 rounded-xl bg-slate-950 px-4 py-2.5 text-xs font-bold text-white hover:bg-slate-800">${icon("check", "size-4")} Authorize</button>`;
+
+  const rows = waiting.map((r) => professorRow(r, buttons(r))).join("");
+
+  return pageHeader("Professor workspace", "Class authorizations", "Confirm that each equipment request supports an active class or laboratory activity.") + `
+    <section class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">${statCards(stats)}</section>
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div class="border-b border-slate-200 p-5">
+        <h2 class="font-bold text-slate-950">Requests requiring your confirmation</h2>
+        <p class="mt-1 text-xs text-slate-500">Verify the student, class schedule, and stated laboratory purpose before approving.</p>
+      </div>
+      ${rows === "" ? `<p class="p-8 text-center text-sm text-slate-500">No requests are waiting for your confirmation.</p>` : `<div class="divide-y divide-slate-100">${rows}</div>`}
+    </div>`;
+}
+
+function approvalsPage() {
+  const reviewed = requests.filter((r) => r.status !== "Pending");
+
+  // For a professor, everything that was not declined counts as approved
+  const rows = reviewed.map((r) => {
+    const decision = r.status === "Declined" ? "Declined" : "Approved";
+    const label = decision === "Declined"
+      ? `<span class="rounded-full bg-rose-50 px-2.5 py-1 text-[0.68rem] font-bold text-rose-600">Declined</span>`
+      : `<span class="rounded-full bg-violet-50 px-2.5 py-1 text-[0.68rem] font-bold text-violet-700">Approved</span>`;
+    return professorRow(r, label);
+  }).join("");
+
+  return pageHeader("Professor workspace", "Approval history", "Review class authorization decisions for your students.") + `
+    <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      <div class="border-b border-slate-200 p-5">
+        <h2 class="font-bold text-slate-950">Reviewed requests</h2>
+        <p class="mt-1 text-xs text-slate-500">Your previous authorization decisions.</p>
+      </div>
+      ${rows === "" ? `<p class="p-8 text-center text-sm text-slate-500">You have not reviewed any requests yet.</p>` : `<div class="divide-y divide-slate-100">${rows}</div>`}
+    </div>`;
+}
+
+// UPDATE: the professor authorizes or declines
+async function reviewRequest(id, action) {
+  try {
+    const { ok, result } = await postJson("api/class_review.php", { id, action });
+    if (!ok) {
+      showToast(result.error, true);
+      return;
+    }
+    showToast(result.message);
+    await loadData();
+    render();
+  } catch (error) {
+    showToast("Unable to connect to the server.", true);
+  }
+}
+
+
+// ---------- 14c. ADMIN: MANAGE USERS ----------
 function usersPage() {
-  const students = users.filter((u) => u.role === "student").length;
-  const admins = users.filter((u) => u.role === "admin").length;
+  const count = (role) => users.filter((u) => u.role === role).length;
   const suspended = users.filter((u) => u.status === "Suspended").length;
 
   const stats = [
     ["Total accounts", users.length, "list", "indigo", ""],
-    ["Students", students, "beaker", "indigo", ""],
-    ["Administrators", admins, "shield", "amber", ""],
+    ["Students", count("student"), "beaker", "indigo", ""],
+    ["Professors", count("professor"), "check", "violet", ""],
+    ["Administrators", count("admin"), "shield", "amber", ""],
     ["Suspended", suspended, "clock", "rose", ""]
   ];
 
-  const tabs = ["All users", "Students", "Administrators"].map((name) => `
+  const tabs = ["All users", "Students", "Professors", "Administrators"].map((name) => `
     <button onclick="setUsersTab('${name}')" class="whitespace-nowrap rounded-lg px-4 py-2 text-xs font-bold ${usersTab === name ? "bg-white text-slate-950 shadow-sm" : "text-slate-500 hover:text-slate-800"}">${name}</button>`).join("");
 
   // Green message after an action (can be closed)
@@ -1291,7 +1685,7 @@ function usersPage() {
 
   return pageHeader("Admin workspace", "Manage users", "View accounts, update access levels, and remove users.") +
     notice + `
-    <section class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-4">${statCards(stats)}</section>
+    <section class="mb-5 grid grid-cols-2 gap-3 lg:grid-cols-5">${statCards(stats)}</section>
 
     <div class="overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <div class="flex flex-col gap-4 border-b border-slate-200 p-5 md:flex-row md:items-center md:justify-between">
@@ -1302,7 +1696,7 @@ function usersPage() {
         </div>
         <div class="flex gap-1 overflow-x-auto rounded-xl bg-slate-100 p-1">${tabs}</div>
       </div>
-      <div class="hidden grid-cols-[1.6fr_1fr_.8fr_.6fr_auto] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[0.65rem] font-bold uppercase tracking-wider text-slate-400 md:grid">
+      <div class="hidden grid-cols-[1.5fr_1fr_.8fr_.6fr_auto] gap-4 border-b border-slate-200 bg-slate-50 px-5 py-3 text-[0.65rem] font-bold uppercase tracking-wider text-slate-400 md:grid">
         <span>Account</span><span>Department</span><span>Role</span><span>Status</span><span>Actions</span>
       </div>
       <div id="user-rows">${userRowsHtml()}</div>
@@ -1312,11 +1706,10 @@ function usersPage() {
 // The rows of the table (filtered by the tab and the search text)
 function userRowsHtml() {
   const search = userQuery.toLowerCase();
+  const tabRoles = { "Students": "student", "Professors": "professor", "Administrators": "admin" };
 
   const visible = users.filter((u) => {
-    const tabMatch = usersTab === "All users" ||
-      (usersTab === "Students" && u.role === "student") ||
-      (usersTab === "Administrators" && u.role === "admin");
+    const tabMatch = usersTab === "All users" || u.role === tabRoles[usersTab];
     const textMatch = [u.full_name, u.email, u.student_id || ""].some((text) => text.toLowerCase().includes(search));
     return tabMatch && textMatch;
   });
@@ -1326,23 +1719,32 @@ function userRowsHtml() {
   }
 
   const button = "rounded-lg border px-3 py-2 text-xs font-bold transition disabled:cursor-not-allowed disabled:opacity-40";
+  const roleStyles = {
+    student: ["Student", "bg-indigo-50 text-indigo-700", "bg-indigo-50 text-indigo-600"],
+    professor: ["Professor", "bg-amber-50 text-amber-700", "bg-amber-50 text-amber-700"],
+    admin: ["Administrator", "bg-violet-50 text-violet-700", "bg-violet-50 text-violet-700"]
+  };
 
   return visible.map((u) => {
     const isMe = u.id === currentUser.id;
     const active = u.status === "Active";
+    const [roleName, badgeStyle, avatarStyle] = roleStyles[u.role];
 
-    const roleBadge = u.role === "admin"
-      ? `<span class="rounded-full bg-violet-50 px-2.5 py-1 text-[0.68rem] font-bold text-violet-700">Administrator</span>`
-      : `<span class="rounded-full bg-indigo-50 px-2.5 py-1 text-[0.68rem] font-bold text-indigo-700">Student</span>`;
+    const roleBadge = `<span class="rounded-full px-2.5 py-1 text-[0.68rem] font-bold ${badgeStyle}">${roleName}</span>`;
 
     const statusHtml = `
       <span class="flex items-center gap-2 text-xs font-semibold ${active ? "text-emerald-600" : "text-rose-500"}">
         <span class="size-1.5 rounded-full ${active ? "bg-emerald-500" : "bg-rose-500"}"></span>${esc(u.status)}
       </span>`;
 
-    const roleButton = u.role === "admin"
-      ? `<button ${isMe ? "disabled" : ""} onclick="changeUser(${u.id}, 'demote')" class="${button} border-slate-200 text-slate-600 hover:bg-slate-50">Demote</button>`
-      : `<button onclick="changeUser(${u.id}, 'promote')" class="${button} border-violet-200 bg-violet-50 text-violet-700 hover:bg-violet-100">Promote</button>`;
+    // The role dropdown (Student / Professor / Administrator)
+    const roleSelect = `
+      <select ${isMe ? "disabled" : ""} onchange="changeRole(${u.id}, this.value)" aria-label="Role of ${esc(u.full_name)}"
+        class="h-9 rounded-lg border border-slate-200 bg-white px-3 text-xs font-bold text-slate-700 outline-none focus:border-violet-500 disabled:cursor-not-allowed disabled:opacity-40">
+        <option value="student" ${u.role === "student" ? "selected" : ""}>Student</option>
+        <option value="professor" ${u.role === "professor" ? "selected" : ""}>Professor</option>
+        <option value="admin" ${u.role === "admin" ? "selected" : ""}>Administrator</option>
+      </select>`;
 
     const statusButton = active
       ? `<button ${isMe ? "disabled" : ""} onclick="changeUser(${u.id}, 'suspend')" class="${button} border-slate-200 text-amber-700 hover:bg-amber-50">Suspend</button>`
@@ -1351,9 +1753,9 @@ function userRowsHtml() {
     const removeButton = `<button ${isMe ? "disabled" : ""} onclick="removeUser(${u.id})" class="${button} border-slate-200 text-rose-600 hover:bg-rose-50">Remove</button>`;
 
     return `
-      <div class="grid gap-4 border-b border-slate-100 px-5 py-4 last:border-0 md:grid-cols-[1.6fr_1fr_.8fr_.6fr_auto] md:items-center">
+      <div class="grid gap-4 border-b border-slate-100 px-5 py-4 last:border-0 md:grid-cols-[1.5fr_1fr_.8fr_.6fr_auto] md:items-center">
         <div class="flex items-center gap-3">
-          <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-600">${esc(initialsOf(u.full_name))}</div>
+          <div class="flex size-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarStyle}">${esc(initialsOf(u.full_name))}</div>
           <div class="min-w-0">
             <div class="truncate text-sm font-bold text-slate-900">${esc(u.full_name)}${isMe ? ` <span class="ml-1 text-[0.65rem] font-normal text-slate-400">(You)</span>` : ""}</div>
             <div class="mt-0.5 truncate text-xs text-slate-400">${esc(u.email)}${u.student_id ? ` · ${esc(u.student_id)}` : ""}</div>
@@ -1362,7 +1764,7 @@ function userRowsHtml() {
         <div class="text-xs font-semibold text-slate-500">${esc(u.department || "—")}</div>
         <div>${roleBadge}</div>
         <div>${statusHtml}</div>
-        <div class="flex flex-wrap items-center gap-2 md:justify-end">${roleButton}${statusButton}${removeButton}</div>
+        <div class="flex flex-wrap items-center gap-2 md:justify-end">${roleSelect}${statusButton}${removeButton}</div>
       </div>`;
   }).join("");
 }
@@ -1383,12 +1785,30 @@ function dismissUsersNotice() {
   renderContent();
 }
 
-// UPDATE: promote, demote, suspend, or reactivate an account
+// UPDATE: change the role from the dropdown
+async function changeRole(id, newRole) {
+  const user = users.find((u) => u.id === id);
+  const names = { student: "a student", professor: "a professor", admin: "an administrator" };
+
+  try {
+    const { ok, result } = await postJson("api/user_update.php", { id, action: "role", role: newRole });
+    if (!ok) {
+      showToast(result.error, true);
+      renderContent();   // put the dropdown back to the real role
+      return;
+    }
+    usersNotice = `${user.full_name} is now ${names[newRole]}.`;
+    await loadData();
+    render();
+  } catch (error) {
+    showToast("Unable to connect to the server.", true);
+  }
+}
+
+// UPDATE: suspend or reactivate an account
 async function changeUser(id, action) {
   const user = users.find((u) => u.id === id);
   const messages = {
-    promote: `${user.full_name} is now an administrator.`,
-    demote: `${user.full_name} is now a student.`,
     suspend: `${user.full_name}'s account was suspended.`,
     activate: `${user.full_name}'s account was reactivated.`
   };
@@ -1438,8 +1858,8 @@ const guideList = [
     intro: "LabTrack makes equipment requests quick and traceable. Follow these steps before visiting the laboratory counter.",
     steps: [
       ["Find your equipment", "Browse the catalog, use category filters, and confirm that the item is currently available."],
-      ["Submit a request", "Add the items and quantities you need, choose an expected return date, and submit the request for review."],
-      ["Wait for approval", "Your laboratory supervisor will approve or decline the request. You will receive an update in My Borrowings."],
+      ["Submit a request", "Add the items and quantities you need, enter your class details, choose your professor and your dates, and send the request."],
+      ["Wait for approval", "Your professor confirms your class first, then the laboratory approves the request. Check Request history for updates."],
       ["Collect your items", "Bring your student ID to the laboratory counter and inspect each item before accepting it."]
     ]
   },
@@ -1553,7 +1973,7 @@ function contactPage() {
           <label class="block text-xs font-bold text-slate-600">Your name
             <input value="${esc(currentUser.full_name)}" readonly class="${readonlyStyle}">
           </label>
-          <label class="block text-xs font-bold text-slate-600">${currentUser.role === "admin" ? "Staff ID" : "Student ID"}
+          <label class="block text-xs font-bold text-slate-600">${currentUser.role === "student" ? "Student ID" : "Staff ID"}
             <input value="${esc(currentUser.student_id || "")}" readonly class="${readonlyStyle}">
           </label>
         </div>
@@ -1615,7 +2035,7 @@ function settingsPage() {
   // [label, value, extra attribute, id]
   const fields = [
     ["Full name", currentUser.full_name, "", "set-name"],
-    [currentUser.role === "admin" ? "Staff ID" : "Student ID", currentUser.student_id || "", "readonly", "set-student-id"],
+    [currentUser.role === "student" ? "Student ID" : "Staff ID", currentUser.student_id || "", "readonly", "set-student-id"],
     ["Email address", currentUser.email, "", "set-email"],
     ["Department", currentUser.department || "", "", "set-department"]
   ];
@@ -1672,6 +2092,191 @@ async function saveProfile() {
 }
 
 
+// ---------- 16b. DARK MODE, NOTIFICATIONS, AUTO-REFRESH ----------
+
+// Dark / light mode. The choice is saved in localStorage so it stays after a refresh.
+function updateThemeIcon() {
+  const dark = document.documentElement.classList.contains("dark");
+  const themeIcon = icon(dark ? "sun" : "moon");   // the icon shows what a click will switch to
+  $("theme-icon").innerHTML = themeIcon;
+  $("theme-icon-login").innerHTML = themeIcon;
+}
+
+function toggleTheme() {
+  const dark = document.documentElement.classList.toggle("dark");
+  try {
+    localStorage.setItem("theme", dark ? "dark" : "light");
+  } catch (error) {
+    // storage is blocked: the theme just will not be remembered
+  }
+  updateThemeIcon();
+}
+
+// --- Notifications: built from the requests (no extra table needed) ---
+const dotColors = { green: "bg-emerald-500", indigo: "bg-indigo-400", amber: "bg-amber-400", rose: "bg-rose-400" };
+
+// Which notifications this person has already opened (saved per user in the browser)
+function seenKey() {
+  return `seen-notifications-${currentUser.id}`;
+}
+
+function loadSeen() {
+  try {
+    return JSON.parse(localStorage.getItem(seenKey())) || [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveSeen(keys) {
+  try {
+    localStorage.setItem(seenKey(), JSON.stringify(keys.slice(-500)));
+  } catch (error) {
+    // storage is blocked
+  }
+}
+
+function whenLabel(date) {
+  if (!date) return "";
+  const days = daysUntil(date);
+  if (days === 0) return "Today";
+  if (days === -1) return "Yesterday";
+  return formatDate(date);
+}
+
+function buildNotifications() {
+  const settings = loadNotificationSettings();   // the checkboxes from the Settings page
+  const list = [];
+  const add = (type, key, color, title, text, date) => {
+    if (settings[type]) list.push({ key, color, title, text, date: date || todayString() });
+  };
+
+  requests.forEach((r) => {
+    const num = requestNumber(r);
+
+    if (role === "student") {
+      if (r.status === "Authorized") add("Request updates", `${r.id}:Authorized`, "indigo", "Request authorized", `${r.professor || "Your professor"} authorized ${num}. The laboratory will review it next.`, r.date_confirmed);
+      if (r.status === "Approved") add("Request updates", `${r.id}:Approved`, "green", "Request approved", `${itemLabel(r)} is ready. Collect it from the laboratory.`, r.date_reviewed);
+      if (r.status === "Declined") add("Request updates", `${r.id}:Declined`, "rose", "Request declined", `${num} for ${itemLabel(r)} was declined.`, r.date_reviewed);
+      if (r.status === "Returned") add("Request updates", `${r.id}:Returned`, "green", "Return confirmed", `${itemLabel(r)} was returned. Thank you!`, r.date_returned);
+      if (loanStatus(r) === "Due soon") add("Return reminders", `${r.id}:due`, "amber", "Return due soon", `${itemLabel(r)} is due on ${whenText(r.return_date, r.return_time)}.`, todayString());
+      if (loanStatus(r) === "Overdue") add("Return reminders", `${r.id}:overdue`, "rose", "Item overdue", `${itemLabel(r)} was due on ${whenText(r.return_date, r.return_time)}.`, todayString());
+    }
+
+    if (role === "professor") {
+      if (r.status === "Pending") add("Request updates", `${r.id}:Pending`, "amber", "New class request", `${r.student} requested ${itemLabel(r)} for ${r.course_code}.`, r.date_requested.slice(0, 10));
+    }
+
+    if (role === "admin") {
+      if (r.status === "Authorized") add("Request updates", `${r.id}:Authorized`, "indigo", "Authorization completed", `${r.professor || "A professor"} authorized request ${num}.`, r.date_confirmed);
+      if (r.status === "Returned") add("Request updates", `${r.id}:Returned`, "green", "Equipment returned", `${r.item} ${r.code} is available again.`, r.date_returned);
+      if (loanStatus(r) === "Overdue") add("Return reminders", `${r.id}:overdue`, "rose", "Overdue item", `${r.student} has not returned ${itemLabel(r)}.`, todayString());
+    }
+  });
+
+  if (role === "admin") {
+    items.filter((item) => item.available === 0).forEach((item) => {
+      add("Inventory alerts", `stock:${item.id}`, "amber", "Out of stock", `${item.name} ${item.code} has no units available.`, todayString());
+    });
+  }
+
+  // newest first, and not more than 20
+  return list.sort((a, b) => b.date.localeCompare(a.date)).slice(0, 20);
+}
+
+// Draws the bell: the number of new notifications and the list
+function renderBell() {
+  const notifications = buildNotifications();
+  const seen = loadSeen();
+  const unread = notifications.filter((n) => !seen.includes(n.key)).length;
+
+  const count = $("bell-count");
+  count.textContent = unread > 9 ? "9+" : unread;
+  count.classList.toggle("hidden", unread === 0);
+  count.classList.toggle("flex", unread > 0);
+
+  $("bell-list").innerHTML = notifications.length === 0
+    ? `<p class="p-8 text-center text-sm text-slate-500">No notifications yet.</p>`
+    : notifications.map((n) => `
+        <div class="flex gap-3 border-b border-slate-100 px-5 py-4 last:border-0">
+          <span class="mt-1.5 size-2 shrink-0 rounded-full ${dotColors[n.color]}"></span>
+          <div class="min-w-0">
+            <div class="text-sm font-bold text-slate-950">${esc(n.title)}</div>
+            <p class="mt-1 text-xs leading-5 text-slate-500">${esc(n.text)}</p>
+            <div class="mt-1.5 text-[0.65rem] text-slate-400">${whenLabel(n.date)}</div>
+          </div>
+        </div>`).join("");
+}
+
+function toggleBell() {
+  const panel = $("bell-panel");
+  const opening = panel.classList.contains("hidden");
+  panel.classList.toggle("hidden", !opening);
+
+  if (opening) {
+    // opening the list means the person has seen everything in it
+    const keys = buildNotifications().map((n) => n.key);
+    saveSeen([...new Set([...loadSeen(), ...keys])]);
+    renderBell();
+  }
+}
+
+function closeBell() {
+  $("bell-panel").classList.add("hidden");
+}
+
+// A click anywhere outside the bell closes the list
+document.addEventListener("click", (event) => {
+  if (!event.target.closest("#bell-wrap")) closeBell();
+});
+
+// Auto-refresh: every 30 seconds the data is loaded again, so new requests and
+// decisions appear without reloading the page.
+function startAutoRefresh() {
+  setInterval(async () => {
+    if (currentUser === null || document.hidden) return;
+
+    await loadData();
+    if (currentUser === null) return;
+
+    // Only redraw the page when nobody is typing and no pop-up or drawer is open
+    const typing = ["INPUT", "TEXTAREA", "SELECT"].includes(document.activeElement?.tagName);
+    const modalOpen = !$("modal").classList.contains("hidden");
+    const drawerOpen = !$("drawer-panel").classList.contains("translate-x-full");
+
+    if (typing || modalOpen || drawerOpen) {
+      renderNav();
+      renderBell();
+    } else {
+      render();
+    }
+  }, 30000);
+}
+
+
+// ---------- 16c. LOGIN PAGE NUMBERS ----------
+// The numbers on the dark side of the login page come from the database
+// (totals only: api/public_stats.php sends no names or private data).
+async function loadPublicStats() {
+  try {
+    const response = await fetch("api/public_stats.php");
+    if (!response.ok) return;
+    const stats = await response.json();
+    const twoDigits = (number) => String(number).padStart(2, "0");
+
+    $("stat-items").textContent = stats.items;
+    $("stat-items-admin").textContent = stats.items;
+    $("stat-available").textContent = stats.available;
+    $("stat-ontime").textContent = stats.on_time === null ? "—" : `${stats.on_time}%`;
+    $("stat-accounts").textContent = twoDigits(stats.accounts);
+    $("stat-requests").textContent = twoDigits(stats.requests);
+    $("stat-courses").textContent = twoDigits(stats.courses);
+  } catch (error) {
+    // No server yet: the dashes stay
+  }
+}
+
+
 // ---------- 17. START ----------
 // Put the icons into the fixed parts of the HTML page.
 function setupIcons() {
@@ -1687,12 +2292,17 @@ function setupIcons() {
   $("role-student-icon").innerHTML = icon("beaker");
   $("role-admin-icon").innerHTML = icon("shield");
   $("role-student-check").innerHTML = icon("check", "size-3");
+  $("role-professor-icon").innerHTML = icon("check");
+  $("role-professor-check").innerHTML = icon("check", "size-3");
+  $("professor-badge-icon").innerHTML = icon("shield", "size-4");
+  $("professor-footer-icon").innerHTML = icon("shield", "size-4");
   $("role-admin-check").innerHTML = icon("check", "size-3");
   $("close-menu-btn").innerHTML = icon("close");
   $("open-menu-btn").innerHTML = icon("menu");
   $("request-btn-icon").innerHTML = icon("list", "size-4");
   $("close-drawer-btn").innerHTML = icon("close");
   $("close-modal-btn").innerHTML = icon("close");
+  $("bell-icon").innerHTML = icon("bell");
 }
 
 // The Escape key closes the pop-up and the request drawer
@@ -1700,8 +2310,12 @@ document.addEventListener("keydown", (event) => {
   if (event.key === "Escape") {
     closeModal();
     closeBasket();
+    closeBell();
   }
 });
 
 setupIcons();
+updateThemeIcon();
+startAutoRefresh();
+loadPublicStats();
 checkSession();
