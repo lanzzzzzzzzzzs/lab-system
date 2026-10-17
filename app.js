@@ -8,6 +8,11 @@
 // Each icon is just the inside of an SVG. icon("plus") gives you a full <svg>.
 const iconPaths = {
   arrow: '<path d="M5 12h14"/><path d="m13 6 6 6-6 6"/>',
+  inbox: '<polyline points="22 12 16 12 14 15 10 15 8 12 2 12"/><path d="M5.45 5.11 2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/>',
+  send: '<path d="M14.536 21.686a.5.5 0 0 0 .937-.024l6.5-19a.496.496 0 0 0-.635-.635l-19 6.5a.5.5 0 0 0-.024.937l7.93 3.18a2 2 0 0 1 1.112 1.11z"/><path d="m21.854 2.147-10.94 10.939"/>',
+  tag: '<path d="M12.586 2.586A2 2 0 0 0 11.172 2H4a2 2 0 0 0-2 2v7.172a2 2 0 0 0 .586 1.414l8.704 8.704a2.426 2.426 0 0 0 3.42 0l6.58-6.58a2.426 2.426 0 0 0 0-3.42z"/><circle cx="7.5" cy="7.5" r=".5" fill="currentColor"/>',
+  archive: '<rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/>',
+  chevron: '<path d="m9 18 6-6-6-6"/>',
   bell: '<path d="M6 8a6 6 0 0 1 12 0c0 7 3 9 3 9H3s3-2 3-9"/><path d="M10.3 21a1.94 1.94 0 0 0 3.4 0"/>',
   moon: '<path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/>',
   sun: '<circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/>',
@@ -54,6 +59,13 @@ let items = [];        // all equipment
 let categories = [];   // [{ id, name }]
 let requests = [];     // borrowing requests (admin: all, professor: sent to them, student: their own)
 let professors = [];   // active professors (a student chooses one)
+let messages = [];     // contact messages (admin: everyone's, others: their own)
+let lastLoadError = ""; // which files failed to load last time (so the red message is not repeated)
+
+// Messages page / Support updates page
+let selectedMessageId = null;   // the message that is open
+let messageFilter = "All";      // "All" or "Unread" (administrator)
+let messageQuery = "";          // text in the search box
 
 // These variables remember what the user is doing right now.
 let loginRole = "student";    // role card chosen on the login screen
@@ -558,7 +570,7 @@ async function logout() {
 // Gets the equipment and the requests at the same time (Promise.all).
 async function loadData() {
   try {
-    const calls = [fetch("api/items.php"), fetch("api/requests.php")];
+    const calls = [fetch("api/items.php"), fetch("api/requests.php"), fetch("api/messages.php")];
     if (role === "admin") calls.push(fetch("api/users.php"));   // only administrators see the accounts
     const responses = await Promise.all(calls);
 
@@ -568,25 +580,47 @@ async function loadData() {
       return;
     }
 
-    const [itemsData, requestsData, usersData] = await Promise.all(responses.map((response) => response.json()));
+    // Read every answer on its own, so one broken file does not stop the others
+    const [itemsData, requestsData, messagesData, usersData] = await Promise.all(
+      responses.map((response) => response.json().catch(() => null))
+    );
 
-    categories = itemsData.categories;
-    professors = itemsData.professors ?? [];
-    items = itemsData.items.map((row) => ({
-      id: Number(row.id),
-      name: row.name,
-      code: row.code,
-      category: row.category,
-      category_id: Number(row.category_id),
-      available: Number(row.available_units),
-      total: Number(row.total_units),
-      inspection: Number(row.inspection_units),
-      icon: row.icon,
-      color: row.color,
-      created_at: row.created_at
-    }));
-    requests = requestsData.requests.map((row) => ({ ...row, id: Number(row.id), quantity: Number(row.quantity) }));
-    if (usersData) users = usersData.users.map((row) => ({ ...row, id: Number(row.id) }));
+    // Tell the person WHICH file failed (a PHP error or a missing database column gives no list)
+    const checks = [["items", itemsData?.items], ["requests", requestsData?.requests], ["messages", messagesData?.messages]];
+    if (role === "admin") checks.push(["users", usersData?.users]);
+    const problem = checks.filter(([, list]) => !Array.isArray(list)).map(([name]) => name).join(", ");
+
+    if (problem !== "" && problem !== lastLoadError) {
+      showToast(`Could not load: ${problem}. Check that the PHP files are in the api folder and that the database is up to date.`, true);
+    }
+    lastLoadError = problem;
+
+    if (Array.isArray(itemsData?.items)) {
+      categories = itemsData.categories;
+      professors = itemsData.professors ?? [];
+      items = itemsData.items.map((row) => ({
+        id: Number(row.id),
+        name: row.name,
+        code: row.code,
+        category: row.category,
+        category_id: Number(row.category_id),
+        available: Number(row.available_units),
+        total: Number(row.total_units),
+        inspection: Number(row.inspection_units),
+        icon: row.icon,
+        color: row.color,
+        created_at: row.created_at
+      }));
+    }
+    if (Array.isArray(requestsData?.requests)) {
+      requests = requestsData.requests.map((row) => ({ ...row, id: Number(row.id), quantity: Number(row.quantity) }));
+    }
+    if (Array.isArray(messagesData?.messages)) {
+      messages = messagesData.messages.map((row) => ({ ...row, id: Number(row.id), user_id: Number(row.user_id) }));
+    }
+    if (Array.isArray(usersData?.users)) {
+      users = usersData.users.map((row) => ({ ...row, id: Number(row.id) }));
+    }
   } catch (error) {
     showToast("Unable to load data from the server.", true);
   }
@@ -616,19 +650,29 @@ function renderNav() {
   const waitingLab = requests.filter((r) => r.status === "Authorized").length;
   const borrowed = requests.filter((r) => r.status === "Approved").length;
   const yellowCount = (count) => `<span class="ml-auto rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-slate-950">${count}</span>`;
+  const violetCount = (count) => count === 0 ? "" : `<span class="ml-auto rounded-full bg-violet-600 px-2 py-0.5 text-xs font-bold text-white">${count}</span>`;
+
+  const unreadMessages = messages.filter((m) => !m.read_at).length;                        // for the administrator
+  const seenUpdates = loadSupportSeen();
+  const newUpdates = messages.filter((m) => !seenUpdates.includes(m.id)).length;           // for students and professors
+
   let links = "";
+  let supportLinks = "";   // only students and professors have "Support updates"
 
   if (role === "student") {
     links += navButton("browse", "dashboard", "Browse equipment");
     links += navButton("borrowings", "list", "My borrowings", `<span class="ml-auto rounded-full bg-slate-800 px-2 py-0.5 text-xs">${borrowed}</span>`);
     links += navButton("history", "history", "Request history");
+    supportLinks = navButton("support", "inbox", "Support updates", violetCount(newUpdates));
   } else if (role === "professor") {
     links += navButton("authorizations", "check", "Class authorizations", yellowCount(waitingProfessor));
     links += navButton("approvals", "history", "Approval history");
+    supportLinks = navButton("support", "inbox", "Support updates", violetCount(newUpdates));
   } else {
     links += navButton("overview", "dashboard", "Overview");
     links += navButton("inventory", "cube", "Inventory");
     links += navButton("requests", "list", "Borrowing requests", yellowCount(waitingLab));
+    links += navButton("messages", "inbox", "Messages", violetCount(unreadMessages));
     links += navButton("users", "shield", "Manage users");
     links += navButton("lending", "history", "Lending history");
   }
@@ -637,6 +681,7 @@ function renderNav() {
     <div class="px-3 pb-2 text-[0.65rem] font-bold uppercase tracking-[0.18em] text-slate-600">Workspace</div>
     ${links}
     <div class="px-3 pb-2 pt-7 text-[0.65rem] font-bold uppercase tracking-[0.18em] text-slate-600">Support</div>
+    ${supportLinks}
     ${navButton("help", "help", "Help center")}
     ${navButton("settings", "settings", "Settings")}`;
 }
@@ -693,6 +738,8 @@ const pages = {
   users: () => usersPage(),
   authorizations: () => authorizationsPage(),
   approvals: () => approvalsPage(),
+  messages: () => messagesPage(),
+  support: () => supportPage(),
   settings: () => settingsPage()
 };
 
@@ -708,6 +755,9 @@ function renderContent() {
 async function go(newPanel) {
   panel = newPanel;
   usersNotice = "";
+  selectedMessageId = null;
+  messageQuery = "";
+  messageFilter = "All";
   closeMenu();
   await loadData();
   if (currentUser === null) return;
@@ -937,20 +987,20 @@ function classDetailsHtml() {
           ${professorOptions}
         </select>
       </label>
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid gap-3 min-[420px]:grid-cols-2">
         ${textInput("course_code", "Course code", "BIOC 312")}
         ${textInput("course_name", "Course name", "Biochemistry")}
       </div>
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid gap-3 min-[420px]:grid-cols-2">
         ${textInput("section", "Section", "Section B")}
         ${textInput("schedule", "Schedule", "Wed · 1:00–4:00 PM")}
       </div>
       ${textInput("purpose", "Laboratory purpose", "Cell structure practical")}
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid gap-3 min-[420px]:grid-cols-2">
         ${dateInput("date_needed", "Date needed", todayString())}
         ${timeInput("time_needed", "Time needed")}
       </div>
-      <div class="grid grid-cols-2 gap-3">
+      <div class="grid gap-3 min-[420px]:grid-cols-2">
         ${dateInput("return_date", "Return date", classForm.date_needed)}
         ${timeInput("return_time", "Return time")}
       </div>
@@ -1460,12 +1510,12 @@ function editItem(id) {
       ${textField("Name", "item-name", item.name)}
       ${textField("Code (for example MIC-204)", "item-code", item.code)}
       ${selectField("Category", "item-category", categoryOptions, item.category_id)}
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid gap-4 min-[420px]:grid-cols-2">
         ${textField("Total units", "item-total", item.total, "number", 'min="1"')}
         ${textField("Units in inspection", "item-inspection", item.inspection, "number", 'min="0"')}
       </div>
       <p class="text-xs leading-5 text-slate-500">Only the units in inspection or maintenance are blocked. The others can still be borrowed. Available units are worked out for you: total − in inspection − borrowed${id !== 0 ? ` (${borrowedUnits(item)} borrowed now)` : ""}.</p>
-      <div class="grid grid-cols-2 gap-4">
+      <div class="grid gap-4 min-[420px]:grid-cols-2">
         ${selectField("Icon", "item-icon", iconChoices, item.icon)}
         ${selectField("Card color", "item-color", colorChoices, item.color)}
       </div>
@@ -1909,8 +1959,8 @@ function helpPage() {
       <div class="mt-5 flex items-center gap-2 text-xs font-bold text-violet-700">Read guide ${icon("arrow", "size-3.5")}</div>
     </button>`).join("");
 
-  return pageHeader("Support", "Help center", "Guides and answers for using the laboratory hub.") + `
-    <div class="grid gap-4 md:grid-cols-3">${cards}</div>
+  // Administrators ARE the laboratory, so they do not get the "Contact laboratory" box
+  const contactBox = role === "admin" ? "" : `
     <div class="mt-5 flex flex-col items-start justify-between gap-4 rounded-2xl bg-slate-950 p-6 text-white sm:flex-row sm:items-center">
       <div>
         <h2 class="font-bold">Still need help?</h2>
@@ -1918,6 +1968,10 @@ function helpPage() {
       </div>
       <button onclick="go('contact')" class="rounded-xl bg-violet-400 px-5 py-3 text-sm font-bold text-slate-950">Contact laboratory</button>
     </div>`;
+
+  return pageHeader("Support", "Help center", "Guides and answers for using the laboratory hub.") + `
+    <div class="grid gap-4 md:grid-cols-3">${cards}</div>
+    ${contactBox}`;
 }
 
 function guidePage() {
@@ -1932,24 +1986,28 @@ function guidePage() {
       </div>
     </li>`).join("");
 
-  return pageHeader("Help center · Guide", guide.title, guide.subtitle, backToHelp()) + `
-    <div class="grid gap-5 lg:grid-cols-[1fr_20rem] lg:items-start">
-      <div class="rounded-2xl border border-slate-200 bg-white p-8">
-        <div class="flex size-12 items-center justify-center rounded-xl bg-violet-50 text-violet-700">${icon(guide.icon, "size-6")}</div>
-        <p class="mt-6 max-w-2xl text-sm leading-7 text-slate-600">${guide.intro}</p>
-        <ol class="mt-8 space-y-6">${steps}</ol>
-      </div>
+  // The "Have a question?" card is for students and professors only
+  const questionCard = role === "admin" ? "" : `
       <div class="rounded-2xl bg-violet-600 p-6 text-white">
         <div class="flex size-10 items-center justify-center rounded-full border border-white/40">${icon("help")}</div>
         <h2 class="mt-6 font-bold">Have a question?</h2>
         <p class="mt-2 text-xs leading-5 text-violet-100">Contact the laboratory team if this guide does not answer your question.</p>
         <button onclick="go('contact')" class="mt-5 w-full rounded-xl bg-white py-3 text-xs font-bold text-violet-700 hover:bg-violet-50">Contact support</button>
+      </div>`;
+
+  return pageHeader("Help center · Guide", guide.title, guide.subtitle, backToHelp()) + `
+    <div class="grid gap-5 ${role === "admin" ? "" : "lg:grid-cols-[1fr_20rem]"} lg:items-start">
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 sm:p-8">
+        <div class="flex size-12 items-center justify-center rounded-xl bg-violet-50 text-violet-700">${icon(guide.icon, "size-6")}</div>
+        <p class="mt-6 max-w-2xl text-sm leading-7 text-slate-600">${guide.intro}</p>
+        <ol class="mt-8 space-y-6">${steps}</ol>
       </div>
+      ${questionCard}
     </div>`;
 }
 
 function contactPage() {
-  const topics = ["Borrowing request", "Returns and extensions", "Damaged equipment", "Equipment availability", "Account problem", "Other"];
+  const topics = ["Borrowing request", "Class authorization", "Equipment issue", "Returns and extensions", "General question"];
   const topicOptions = topics.map((name) => [name, name]);
 
   const infoCards = [
@@ -1973,11 +2031,12 @@ function contactPage() {
           <label class="block text-xs font-bold text-slate-600">Your name
             <input value="${esc(currentUser.full_name)}" readonly class="${readonlyStyle}">
           </label>
-          <label class="block text-xs font-bold text-slate-600">${currentUser.role === "student" ? "Student ID" : "Staff ID"}
+          <label class="block text-xs font-bold text-slate-600">Account ID
             <input value="${esc(currentUser.student_id || "")}" readonly class="${readonlyStyle}">
           </label>
         </div>
         <div class="mt-5">${selectField("Topic", "contact-topic", topicOptions, "Borrowing request")}</div>
+        <div class="mt-5">${textField("Subject", "contact-subject", "", "text", 'maxlength="150" placeholder="Extension for microscope return"')}</div>
         <label class="mt-5 block text-xs font-bold text-slate-600" for="contact-message">Message
           <textarea id="contact-message" rows="5" maxlength="1000" placeholder="Tell us what you need help with…"
             class="mt-2 w-full rounded-xl border border-slate-200 p-4 text-sm font-normal outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-100"></textarea>
@@ -1991,24 +2050,347 @@ function contactPage() {
 // CREATE: save the message in the database
 async function sendMessage() {
   const topic = $("contact-topic").value;
+  const subject = $("contact-subject").value.trim();
   const message = $("contact-message").value.trim();
 
+  if (subject.length < 3) {
+    showToast("Please write a subject.", true);
+    return;
+  }
   if (message.length < 10) {
     showToast("Please write a message of at least 10 characters.", true);
     return;
   }
 
   try {
-    const { ok, result } = await postJson("api/message_send.php", { topic, message });
+    const { ok, result } = await postJson("api/message_send.php", { topic, subject, message });
     if (!ok) {
       showToast(result.error, true);
       return;
     }
-    $("contact-message").value = "";
     showToast(result.message);
+    go("support");   // show the automated "Request received" update
   } catch (error) {
     showToast("Unable to connect to the server.", true);
   }
+}
+
+
+// ---------- 15b. MESSAGES (administrator) AND SUPPORT UPDATES (student, professor) ----------
+// The administrator reads the messages here but cannot reply inside LabTrack:
+// the reply is written in Outlook (the button opens it with the recipient and subject filled in).
+
+// Which support updates this student or professor already opened (saved in the browser)
+function supportSeenKey() {
+  return `seen-support-${currentUser.id}`;
+}
+
+function loadSupportSeen() {
+  try {
+    return JSON.parse(localStorage.getItem(supportSeenKey())) || [];
+  } catch (error) {
+    return [];
+  }
+}
+
+function saveSupportSeen(ids) {
+  try {
+    localStorage.setItem(supportSeenKey(), JSON.stringify(ids.slice(-500)));
+  } catch (error) {
+    // storage is blocked
+  }
+}
+
+// "10:42 AM" for today, "Yesterday", or "12 Aug"
+function shortWhen(text) {
+  const days = daysUntil(text);
+  if (days === 0) return formatTime(text.slice(11, 16));
+  if (days === -1) return "Yesterday";
+  return parseDate(text).toLocaleDateString("en-GB", { day: "numeric", month: "short" });
+}
+
+// "Today at 10:42 AM" or "Aug 11 at 10:42 AM"
+function submittedText(text) {
+  const day = daysUntil(text) === 0 ? "Today" : formatDate(text);
+  return `${day} at ${formatTime(text.slice(11, 16))}`;
+}
+
+// Messages written before the subject existed show their topic instead
+function messageSubject(message) {
+  return message.subject || message.topic;
+}
+
+function tagChip(topic) {
+  return `<span class="inline-flex items-center gap-1 rounded-md bg-violet-50 px-2 py-0.5 text-[0.65rem] font-semibold text-violet-700">${icon("tag", "size-3")}${esc(topic)}</span>`;
+}
+
+// The messages shown in the list (the All / Unread tab and the search text)
+function visibleMessages() {
+  const search = messageQuery.toLowerCase();
+  return messages.filter((m) => {
+    if (messageFilter === "Unread" && m.read_at) return false;
+    return [m.sender, messageSubject(m), m.message, m.topic].some((text) => text.toLowerCase().includes(search));
+  });
+}
+
+function messageCountText() {
+  const count = visibleMessages().length;
+  return (role === "admin" ? plural(count, "message") : plural(count, "request")).toUpperCase();
+}
+
+// The list on the left
+function messageListHtml() {
+  const list = visibleMessages();
+
+  if (list.length === 0) {
+    const empty = messages.length === 0 && role !== "admin"
+      ? "You have not sent any requests yet. Use Contact laboratory in the Help center."
+      : "No messages found.";
+    return `<p class="p-8 text-center text-sm text-slate-500">${empty}</p>`;
+  }
+
+  const admin = role === "admin";
+  const seen = loadSupportSeen();
+
+  return list.map((m) => {
+    const unread = admin ? !m.read_at : !seen.includes(m.id);
+    const selected = m.id === selectedMessageId;
+    const name = admin ? m.sender : "Laboratory support";
+    const initials = admin ? initialsOf(m.sender) : "LT";
+    const preview = admin ? m.message : "Request received · Awaiting email reply";
+
+    return `
+      <button onclick="openMessage(${m.id})" class="block w-full border-b border-slate-100 px-5 py-4 text-left transition hover:bg-slate-50 ${selected ? "border-l-4 border-l-violet-600 bg-violet-50" : ""}">
+        <div class="flex gap-3">
+          <div class="flex size-10 shrink-0 items-center justify-center rounded-full ${admin ? "bg-indigo-50 text-indigo-600" : "bg-violet-600 text-white"} text-xs font-bold">${esc(initials)}</div>
+          <div class="min-w-0 flex-1">
+            <div class="flex items-center justify-between gap-2">
+              <span class="truncate text-sm ${unread ? "font-bold" : "font-semibold"} text-slate-900">${esc(name)}</span>
+              <span class="flex shrink-0 items-center gap-2 text-[0.68rem] text-slate-400">${shortWhen(m.created_at)}${unread ? `<span class="size-2 rounded-full bg-violet-600"></span>` : ""}</span>
+            </div>
+            <div class="mt-0.5 truncate text-sm font-semibold text-slate-800">${esc(messageSubject(m))}</div>
+            <div class="mt-0.5 truncate text-xs text-slate-500">${esc(preview)}</div>
+            <div class="mt-2">${tagChip(m.topic)}</div>
+          </div>
+        </div>
+      </button>`;
+  }).join("");
+}
+
+// Open a message. For the administrator this also marks it as read.
+async function openMessage(id) {
+  selectedMessageId = id;
+  const message = messages.find((m) => m.id === id);
+
+  if (role === "admin" && message && !message.read_at) {
+    message.read_at = new Date().toISOString();   // show it as read right away
+    try {
+      await postJson("api/message_update.php", { id, action: "read" });
+    } catch (error) {
+      // it will show as unread again after the next refresh
+    }
+  }
+
+  if (role !== "admin") {
+    const seen = loadSupportSeen();
+    if (!seen.includes(id)) saveSupportSeen([...seen, id]);
+  }
+
+  renderNav();
+  renderBell();
+  renderContent();
+}
+
+// On a phone the list and the message are shown one at a time: this goes back to the list
+function closeMessage() {
+  selectedMessageId = null;
+  renderContent();
+}
+
+function setMessageFilter(name) {
+  messageFilter = name;
+  renderContent();
+}
+
+// Only redraws the list (so the search box keeps focus while typing)
+function setMessageQuery(text) {
+  messageQuery = text;
+  $("message-list").innerHTML = messageListHtml();
+  $("message-count").textContent = messageCountText();
+}
+
+// UPDATE: archive (hide) a message from the inbox
+async function archiveMessage(id) {
+  try {
+    const { ok, result } = await postJson("api/message_update.php", { id, action: "archive" });
+    if (!ok) {
+      showToast(result.error, true);
+      return;
+    }
+    selectedMessageId = null;
+    showToast(result.message);
+    await loadData();
+    render();
+  } catch (error) {
+    showToast("Unable to connect to the server.", true);
+  }
+}
+
+// The search box above the list
+function messageSearchBox() {
+  return `
+    <div class="relative min-w-0 flex-1">
+      <span class="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400">${icon("search", "size-4")}</span>
+      <input id="message-search" value="${esc(messageQuery)}" oninput="setMessageQuery(this.value)" placeholder="${role === "admin" ? "Search messages…" : "Search conversations…"}" aria-label="Search"
+        class="h-11 w-full rounded-xl border border-slate-200 bg-slate-50 pl-10 pr-4 text-sm outline-none focus:border-violet-500 focus:ring-4 focus:ring-violet-100">
+    </div>`;
+}
+
+// --- Administrator: the inbox ---
+function messagesPage() {
+  const unread = messages.filter((m) => !m.read_at).length;
+  const selected = messages.find((m) => m.id === selectedMessageId);
+
+  const unreadCard = `
+    <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4">
+      <div class="flex size-10 items-center justify-center rounded-xl bg-violet-600 text-sm font-bold text-white">${unread}</div>
+      <div>
+        <div class="text-sm font-bold text-slate-950">Unread messages</div>
+        <div class="text-xs text-slate-400">Requires your attention</div>
+      </div>
+    </div>`;
+
+  const tabs = ["All", "Unread"].map((name) => `
+    <button onclick="setMessageFilter('${name}')" class="rounded-lg px-3 py-1.5 text-xs font-bold ${messageFilter === name ? "bg-white text-slate-950 shadow-sm" : "text-slate-500"}">${name}</button>`).join("");
+
+  // On a phone only one of the two sides is shown: the list, or the open message
+  return pageHeader("Admin workspace", "Messages", "Review and respond to requests from students and faculty.", unreadCard) + `
+    <div class="grid overflow-hidden rounded-2xl border border-slate-200 bg-white lg:grid-cols-[24rem_1fr]">
+      <div class="${selected ? "hidden lg:block" : ""} border-slate-200 lg:border-r">
+        <div class="flex items-center gap-3 p-5">
+          ${messageSearchBox()}
+          <div class="flex shrink-0 rounded-xl bg-slate-100 p-1">${tabs}</div>
+        </div>
+        <div class="flex items-center justify-between border-y border-slate-100 bg-slate-50 px-5 py-3 text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">
+          <span>Inbox</span><span id="message-count">${messageCountText()}</span>
+        </div>
+        <div id="message-list" class="max-h-[40rem] overflow-y-auto">${messageListHtml()}</div>
+      </div>
+      <div class="${selected ? "flex flex-col" : "hidden lg:flex lg:flex-col"} min-h-[24rem]">
+        ${selected ? adminMessageDetail(selected) : `<div class="m-auto p-8 text-sm text-slate-500">Select a message to read it.</div>`}
+      </div>
+    </div>`;
+}
+
+function adminMessageDetail(m) {
+  const rolePill = m.role === "professor"
+    ? `<span class="rounded-md bg-emerald-50 px-2 py-0.5 text-[0.65rem] font-bold text-emerald-700">Professor</span>`
+    : `<span class="rounded-md bg-indigo-50 px-2 py-0.5 text-[0.65rem] font-bold text-indigo-700">Student</span>`;
+
+  // Outlook on the web: a new email with the recipient and the subject already filled in
+  const outlookLink = `https://outlook.office.com/mail/deeplink/compose?to=${encodeURIComponent(m.email)}&subject=${encodeURIComponent("Re: " + messageSubject(m))}`;
+
+  const received = daysUntil(m.created_at) === 0
+    ? `today at ${formatTime(m.created_at.slice(11, 16))}`
+    : submittedText(m.created_at);
+
+  return `
+    <div class="flex items-start justify-between gap-3 border-b border-slate-100 p-5 sm:p-6">
+      <div class="flex min-w-0 gap-3">
+        <button onclick="closeMessage()" class="flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 lg:hidden" aria-label="Back to the inbox">${icon("arrow", "size-4 rotate-180")}</button>
+        <div class="flex size-12 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-sm font-bold text-indigo-600">${esc(initialsOf(m.sender))}</div>
+        <div class="min-w-0">
+          <div class="flex flex-wrap items-center gap-2"><span class="text-sm font-bold text-slate-900">${esc(m.sender)}</span>${rolePill}${tagChip(m.topic)}</div>
+          <div class="mt-1 text-xs text-slate-400">${esc(m.student_id || "No ID")} · ${esc(m.department || "No department")}</div>
+        </div>
+      </div>
+      <button onclick="archiveMessage(${m.id})" class="flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50" aria-label="Archive message" title="Archive">${icon("archive", "size-4")}</button>
+    </div>
+
+    <div class="flex-1 p-5 sm:p-6">
+      <div class="flex flex-wrap items-center justify-between gap-2">
+        <span class="text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">Subject</span>
+        <span class="flex items-center gap-1.5 text-[0.68rem] text-slate-400">${icon("clock", "size-3.5")} Received ${received}</span>
+      </div>
+      <h2 class="mt-2 text-xl font-bold tracking-tight text-slate-950 sm:text-2xl">${esc(messageSubject(m))}</h2>
+      <p class="mt-6 whitespace-pre-wrap text-sm leading-7 text-slate-600">${esc(m.message)}</p>
+    </div>
+
+    <div class="m-5 flex flex-col gap-4 rounded-2xl border border-slate-200 p-5 sm:m-6 sm:flex-row sm:items-center sm:justify-between">
+      <div class="flex min-w-0 gap-4">
+        <div class="flex size-11 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-700">${icon("send")}</div>
+        <div class="min-w-0">
+          <div class="text-sm font-bold text-slate-950">Reply through Outlook</div>
+          <p class="mt-1 text-xs leading-5 text-slate-500">LabTrack does not send replies. Contact ${esc(m.sender)} using their registered email address.</p>
+          <div class="mt-2 break-all text-xs font-bold text-slate-900">${esc(m.email)}</div>
+        </div>
+      </div>
+      <a href="${esc(outlookLink)}" target="_blank" rel="noopener noreferrer"
+        class="flex shrink-0 items-center justify-center gap-2 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800">Open Outlook ${icon("chevron", "size-4")}</a>
+    </div>`;
+}
+
+// --- Student and professor: the automated "Request received" update ---
+function supportPage() {
+  const selected = messages.find((m) => m.id === selectedMessageId);
+  const workspace = role === "professor" ? "Professor workspace" : "Student workspace";
+
+  const receivedCard = `
+    <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4">
+      <div class="flex size-10 items-center justify-center rounded-xl bg-violet-600 text-white">${icon("check", "size-5")}</div>
+      <div>
+        <div class="text-sm font-bold text-slate-950">Request received</div>
+        <div class="text-xs text-slate-400">Reply will arrive by email</div>
+      </div>
+    </div>`;
+
+  return pageHeader(workspace, "Support updates", "Track requests sent to the laboratory team.", receivedCard) + `
+    <div class="grid overflow-hidden rounded-2xl border border-slate-200 bg-white lg:grid-cols-[24rem_1fr]">
+      <div class="${selected ? "hidden lg:block" : ""} border-slate-200 lg:border-r">
+        <div class="p-5">${messageSearchBox()}</div>
+        <div class="flex items-center justify-between border-y border-slate-100 bg-slate-50 px-5 py-3 text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">
+          <span>Your requests</span><span id="message-count">${messageCountText()}</span>
+        </div>
+        <div id="message-list" class="max-h-[40rem] overflow-y-auto">${messageListHtml()}</div>
+      </div>
+      <div class="${selected ? "flex flex-col" : "hidden lg:flex lg:flex-col"} min-h-[24rem]">
+        ${selected ? supportDetail(selected) : `<div class="m-auto p-8 text-sm text-slate-500">Select a request to see its update.</div>`}
+      </div>
+    </div>`;
+}
+
+function supportDetail(m) {
+  return `
+    <div class="flex items-center gap-3 border-b border-slate-100 p-5 sm:p-6">
+      <button onclick="closeMessage()" class="flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 lg:hidden" aria-label="Back to the list">${icon("arrow", "size-4 rotate-180")}</button>
+      <div class="flex size-12 shrink-0 items-center justify-center rounded-full bg-violet-600 text-sm font-bold text-white">LT</div>
+      <div class="min-w-0">
+        <div class="flex flex-wrap items-center gap-2">
+          <span class="text-sm font-bold text-slate-900">Laboratory support</span>
+          <span class="rounded-md bg-violet-50 px-2 py-0.5 text-[0.65rem] font-bold text-violet-700">Automated update</span>
+        </div>
+        <div class="mt-1 text-xs text-slate-400">Replies are delivered through Outlook email</div>
+      </div>
+    </div>
+
+    <div class="flex-1 p-5 sm:p-8">
+      <div class="mx-auto max-w-xl text-center">
+        <div class="mx-auto flex size-16 items-center justify-center rounded-full bg-violet-50">
+          <div class="flex size-12 items-center justify-center rounded-full bg-violet-600 text-white">${icon("check", "size-6")}</div>
+        </div>
+        <div class="mt-5 text-[0.7rem] font-bold uppercase tracking-[0.18em] text-violet-600">Automated message</div>
+        <h2 class="mt-2 text-2xl font-bold tracking-tight text-slate-950">Your request has been received</h2>
+        <p class="mt-3 text-sm leading-6 text-slate-500">We've received your request. A laboratory administrator will review it and send a reply to <span class="break-all font-semibold text-slate-700">${esc(currentUser.email)}</span> through Outlook email. Replies are not sent in LabTrack.</p>
+      </div>
+
+      <div class="mx-auto mt-8 max-w-xl rounded-2xl border border-slate-200 p-5">
+        <div class="space-y-3 text-xs">
+          <div class="flex gap-6"><span class="w-20 shrink-0 font-bold uppercase tracking-wider text-slate-400">Subject</span><span class="font-semibold text-slate-900">${esc(messageSubject(m))}</span></div>
+          <div class="flex gap-6"><span class="w-20 shrink-0 font-bold uppercase tracking-wider text-slate-400">Submitted</span><span class="font-semibold text-slate-900">${submittedText(m.created_at)}</span></div>
+        </div>
+        <p class="mt-4 whitespace-pre-wrap border-t border-slate-100 pt-4 text-sm leading-6 text-slate-600">${esc(m.message)}</p>
+      </div>
+    </div>`;
 }
 
 
@@ -2171,6 +2553,16 @@ function buildNotifications() {
       if (r.status === "Authorized") add("Request updates", `${r.id}:Authorized`, "indigo", "Authorization completed", `${r.professor || "A professor"} authorized request ${num}.`, r.date_confirmed);
       if (r.status === "Returned") add("Request updates", `${r.id}:Returned`, "green", "Equipment returned", `${r.item} ${r.code} is available again.`, r.date_returned);
       if (loanStatus(r) === "Overdue") add("Return reminders", `${r.id}:overdue`, "rose", "Overdue item", `${r.student} has not returned ${itemLabel(r)}.`, todayString());
+    }
+  });
+
+  messages.forEach((m) => {
+    const day = m.created_at.slice(0, 10);
+    if (role === "admin" && !m.read_at) {
+      add("Request updates", `msg:${m.id}`, "indigo", "New message", `${m.sender} sent: ${messageSubject(m)}`, day);
+    }
+    if (role !== "admin") {
+      add("Request updates", `support:${m.id}`, "green", "Request received", `The laboratory received "${messageSubject(m)}". The reply will arrive by email.`, day);
     }
   });
 

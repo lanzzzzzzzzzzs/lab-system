@@ -21,7 +21,8 @@ Every step is saved in a MySQL database, so nothing gets lost and every number o
 - Notification bell: new decisions, due-soon and overdue items, and out-of-stock alerts. The notification choices in Settings decide what appears
 - The page data refreshes by itself every 30 seconds (auto-refresh)
 - Settings page: update your profile (name, email, department)
-- Help center with guides, and a Contact page that saves messages to the database
+- Help center with guides
+- Students and professors can contact the laboratory (the message is saved in the database) and follow it in **Support updates**, where an automated "Request received" notice explains that the reply arrives by email
 - Responsive layout for desktop, tablet, and mobile
 - The login page shows real numbers from the database (lab items, available now, on-time returns, accounts, class requests, active courses)
 
@@ -44,6 +45,7 @@ Every step is saved in a MySQL database, so nothing gets lost and every number o
 - Categories: Optical, Glassware, Measuring, Laboratory Accessories, Heating Equipment
 - Borrowing requests: approve (only after a professor authorized it), decline, and mark as returned
 - Lending history with the exact borrow and return times
+- Messages inbox: read the messages from students and professors, search, filter unread, and archive them. Administrators cannot reply inside LabTrack: the **Open Outlook** button opens a new email with the recipient and the subject already filled in
 - Manage users: change a role from the dropdown (Student, Professor, Administrator), suspend or reactivate accounts, and remove accounts
 - Professor and administrator accounts can only be created with a secret access code
 
@@ -83,7 +85,7 @@ lab-system/
 │   ├── items.php, item_save.php, item_delete.php
 │   ├── borrow.php, requests.php, class_review.php, request_update.php
 │   ├── users.php, user_update.php, user_delete.php
-│   ├── message_send.php
+│   ├── message_send.php, messages.php, message_update.php
 │   └── public_stats.php
 └── database/
     └── database.sql    the whole database in one file
@@ -120,7 +122,7 @@ The whole database is in one file. Open `http://localhost/phpmyadmin`, go to the
 | `categories` | Equipment categories |
 | `equipment` | Each item with its total units, available units, units in inspection, icon, and color |
 | `borrow_requests` | Every request: student, item, quantity, professor, class details, planned and actual dates and times, status |
-| `support_messages` | Messages sent from the Contact page |
+| `support_messages` | Messages sent from the Contact page (subject, topic, and whether an administrator read or archived it) |
 | `account_attempts` | Log of every attempt to create a professor or administrator account |
 
 A request moves through these statuses: **Pending** (waiting for the professor) → **Authorized** (professor confirmed) → **Approved** (laboratory released it) → **Returned**. It can be **Declined** by the professor or the laboratory on the way.
@@ -138,6 +140,33 @@ A request moves through these statuses: **Pending** (waiting for the professor) 
 
 ## Screenshots
 
+**Login and sign up**
+
+![Login page](screenshots/01-login.png)
+
+**Student: browse equipment and send a request**
+
+![Student browse page](screenshots/02-student-browse.png)
+
+![Request drawer with class details](screenshots/03-request-drawer.png)
+
+**Professor: class authorizations**
+
+![Professor class authorizations](screenshots/04-professor-authorizations.png)
+
+**Administrator: overview with charts, inventory, and manage users**
+
+![Admin overview](screenshots/05-admin-overview.png)
+
+![Admin inventory](screenshots/06-admin-inventory.png)
+
+![Manage users](screenshots/07-manage-users.png)
+
+**Dark mode and notifications**
+
+![Dark mode](screenshots/08-dark-mode.png)
+
+![Notification bell](screenshots/09-notifications.png)
 
 ## Live demo
 

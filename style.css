@@ -209,3 +209,21 @@ button {
 .dark input:not([type="checkbox"]):not([type="radio"]),
 .dark select,
 .dark textarea { background-color: #0f172a; }
+
+
+/* =====================================================
+   MOBILE ROLE CARDS
+   On a phone each role card becomes one row: icon on the left, text on the right.
+   ===================================================== */
+@media (max-width: 639px) {
+  .role-card {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    column-gap: 0.875rem;
+    align-items: center;
+    padding: 0.75rem 1rem;
+  }
+  .role-card > div:first-child { grid-row: span 2; }
+  .role-card > div { margin-top: 0 !important; }
+  .role-check { display: none !important; }
+}

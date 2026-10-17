@@ -98,10 +98,13 @@ CREATE TABLE borrow_requests (
 -- ---------- SUPPORT MESSAGES (from the Contact page) ----------
 CREATE TABLE support_messages (
   id INT AUTO_INCREMENT PRIMARY KEY,
-  user_id INT NOT NULL,
+  user_id INT NOT NULL,                          -- the student or professor who wrote it
   topic VARCHAR(50) NOT NULL,
+  subject VARCHAR(150) NOT NULL DEFAULT '',
   message TEXT NOT NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  read_at DATETIME NULL,                         -- when an administrator opened it
+  archived TINYINT(1) NOT NULL DEFAULT 0,        -- 1 = hidden from the administrator's inbox
   FOREIGN KEY (user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 

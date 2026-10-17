@@ -175,7 +175,7 @@
           </div>
 
           <!-- Role choice (sign in only) -->
-          <div id="role-cards" class="mb-7 grid grid-cols-3 gap-3">
+          <div id="role-cards" class="mb-7 grid grid-cols-1 gap-3 sm:grid-cols-3">
             <button type="button" id="role-student" onclick="selectRole('student')" class="role-card active">
               <div class="flex items-center justify-between">
                 <div class="role-icon" id="role-student-icon"></div>
@@ -332,7 +332,7 @@
               <span id="bell-icon"></span>
               <span id="bell-count" class="absolute -right-1.5 -top-1.5 hidden size-5 items-center justify-center rounded-full bg-violet-600 text-[0.6rem] font-bold text-white"></span>
             </button>
-            <div id="bell-panel" class="absolute right-0 top-12 z-50 hidden w-96 max-w-[calc(100vw-2.5rem)] overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl">
+            <div id="bell-panel" class="fixed inset-x-3 top-[4.75rem] z-50 hidden overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-2xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-12 sm:w-96">
               <div class="flex items-center justify-between border-b border-slate-100 px-5 py-4">
                 <div>
                   <div class="text-sm font-bold text-slate-950">Notifications</div>
