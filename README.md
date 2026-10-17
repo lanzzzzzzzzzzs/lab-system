@@ -176,7 +176,7 @@ The test accounts for the instructor are in the `README.txt` of the submission. 
 
 ## Developers
 
-**Lanz Manuel I. Salvacion** - 
+**Lanz Manuel I. Salvacion** 
 
 Contributions:
 - Interface design in Figma and front-end development (HTML5, CSS3, Tailwind CSS, JavaScript)
