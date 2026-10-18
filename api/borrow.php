@@ -1,4 +1,4 @@
-de<?php
+<?php
 // CREATE: a student asks to borrow items for a laboratory class.
 // The request waits for the chosen professor to confirm it.
 require __DIR__ . "/db.php";
