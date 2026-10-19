@@ -146,27 +146,27 @@ A request moves through these statuses: **Pending** (waiting for the professor) 
 
 **Student: browse equipment and send a request**
 
-![Student browse page](screenshots/02-student-browse.png)
+<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/2ebeca2b-dfc7-4c48-bb07-a7115166452a" />
 
-![Request drawer with class details](screenshots/03-request-drawer.png)
+<img width="1904" height="1079" alt="Image" src="https://github.com/user-attachments/assets/98a2cddd-c737-4e3e-b48a-ad673f719d05" />
 
 **Professor: class authorizations**
 
-![Professor class authorizations](screenshots/04-professor-authorizations.png)
+<img width="1919" height="1079" alt="Image" src="https://github.com/user-attachments/assets/64363245-24ee-4e40-b235-2f6fb052eacc" />
 
 **Administrator: overview with charts, inventory, and manage users**
 
-![Admin overview](screenshots/05-admin-overview.png)
+<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/bf4cdb3b-e3fe-49c3-902f-1706e9a08568" />
 
-![Admin inventory](screenshots/06-admin-inventory.png)
+<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/fe8f093f-cdc7-49b8-9af9-c9ce7017a244" />
 
-![Manage users](screenshots/07-manage-users.png)
+<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/601de838-f622-4296-a14d-38d52294f551" />
 
 **Dark mode and notifications**
 
-![Dark mode](screenshots/08-dark-mode.png)
+<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/9e1eb26b-0a84-4555-b149-398e60114f2c" />
 
-![Notification bell](screenshots/09-notifications.png)
+<img width="379" height="456" alt="Image" src="https://github.com/user-attachments/assets/9b668e05-1ee7-46fc-9fd2-473130939e6a" />
 
 ## Live demo
 
