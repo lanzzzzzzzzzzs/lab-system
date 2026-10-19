@@ -142,7 +142,7 @@ A request moves through these statuses: **Pending** (waiting for the professor) 
 
 **Login and sign up**
 
-![Login page](<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/98a44f4d-bd12-4742-a084-bd1a4d70aa53" />)
+<img width="1920" height="1080" alt="Image" src="https://github.com/user-attachments/assets/98a44f4d-bd12-4742-a084-bd1a4d70aa53" />
 
 **Student: browse equipment and send a request**
 
