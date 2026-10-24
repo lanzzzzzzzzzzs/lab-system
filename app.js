@@ -184,6 +184,35 @@ function loanStatus(request) {
   return "Active";
 }
 
+// How long an item was late: "25 min", "3 hr", "2 days"
+function lateText(milliseconds) {
+  const minutes = Math.max(1, Math.round(milliseconds / (60 * 1000)));
+  if (minutes < 60) return `${minutes} min`;
+  if (minutes < 24 * 60) return `${Math.round(minutes / 60)} hr`;
+  return plural(Math.round(minutes / (24 * 60)), "day");
+}
+
+// For a returned item: was it given back on time or late?
+// It compares the REAL return moment (date_returned) with the promised date and time.
+// Returns null when the item is not returned yet.
+function returnTiming(request) {
+  if (request.status !== "Returned" || !request.date_returned) return null;
+
+  const time = request.return_time ? request.return_time.slice(0, 5) : "23:59";
+  const dueAt = new Date(`${request.return_date}T${time}`);
+  const returnedAt = new Date(request.date_returned.replace(" ", "T"));
+
+  if (returnedAt <= dueAt) return { late: false, text: "Returned on time" };
+  return { late: true, text: `Returned late · ${lateText(returnedAt - dueAt)}` };
+}
+
+// The badge for a request. A returned item also says if it was on time or late.
+function statusBadge(request) {
+  const timing = returnTiming(request);
+  if (timing) return badge(timing.text, `Due ${whenText(request.return_date, request.return_time)}`);
+  return badge(loanStatus(request));
+}
+
 function itemLabel(request) {          // "Compound Microscope" or "Compound Microscope × 3"
   return request.quantity > 1 ? `${request.item} × ${request.quantity}` : request.item;
 }
@@ -228,18 +257,21 @@ function newClassForm() {
   };
 }
 
-// Colored label for a status like "Pending" or "Approved"
-function badge(status) {
+// Colored label for a status like "Pending" or "Approved". "tip" is the text shown on hover.
+function badge(status, tip = "") {
   const labels = { Pending: "Awaiting professor" };   // the name shown to people
   let style = "bg-rose-50 text-rose-600";
   if (["Active", "Returned", "Approved", "Operational"].includes(status)) {
     style = "bg-violet-50 text-violet-700";
+  } else if (status === "Returned on time") {
+    style = "bg-emerald-50 text-emerald-700";
   } else if (["Pending", "Due soon"].includes(status)) {
     style = "bg-amber-50 text-amber-700";
   } else if (status === "Authorized") {
     style = "bg-indigo-50 text-indigo-700";
   }
-  return `<span class="w-fit rounded-full px-2.5 py-1 text-[0.68rem] font-bold ${style}">${esc(labels[status] ?? status)}</span>`;
+  const title = tip ? ` title="${esc(tip)}"` : "";
+  return `<span${title} class="w-fit rounded-full px-2.5 py-1 text-[0.68rem] font-bold ${style}">${esc(labels[status] ?? status)}</span>`;
 }
 
 // Title + description + optional button at the top of a page
@@ -939,6 +971,131 @@ function changeQty(id, change) {
 }
 
 // Remember what the student types in the class details
+// ---------- schedule spacer ----------
+// The student can type "wed 1-4pm" or "MWF 8:30am-10" and it becomes "Wed · 1:00–4:00 PM".
+
+const DAY_WORDS = { monday: "Mon", mon: "Mon", tuesday: "Tue", tues: "Tue", tue: "Tue", wednesday: "Wed", wed: "Wed",
+  thursday: "Thu", thurs: "Thu", thur: "Thu", thu: "Thu", friday: "Fri", fri: "Fri", saturday: "Sat", sat: "Sat",
+  sunday: "Sun", sun: "Sun" };
+const DAY_LETTERS = { th: "Thu", m: "Mon", t: "Tue", w: "Wed", f: "Fri", s: "Sat" };   // for MWF, TTh, MW...
+
+// Reads the days at the start of the text.
+// "Mon/Wed 1pm" -> { days: ["Mon", "Wed"], gap: " ", rest: "1pm" }  (gap = what stood after the last day)
+function readDays(text) {
+  let rest = text.replace(/^\s+/, "");
+  const days = [];
+  let gap = "";
+
+  while (true) {
+    const word = rest.match(/^(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tues|thurs|thur|mon|tue|wed|thu|fri|sat|sun)(?![a-z])/i);
+    const letters = days.length === 0 ? rest.match(/^((?:th|m|t|w|f|s)+)(?![a-z])/i) : null;
+
+    let length;
+    if (word) {
+      days.push(DAY_WORDS[word[1].toLowerCase()]);
+      length = word[0].length;
+    } else if (letters && letters[1].length >= 2) {
+      (letters[1].toLowerCase().match(/th|m|t|w|f|s/g) || []).forEach((letter) => days.push(DAY_LETTERS[letter]));
+      length = letters[0].length;
+    } else {
+      break;
+    }
+
+    const after = rest.slice(length);
+    const separator = after.match(/^\s*(?:[\/,&+-]|and(?![a-z]))?\s*/)[0];
+    const next = after.slice(separator.length);
+    const nextIsDay = /^(monday|tuesday|wednesday|thursday|friday|saturday|sunday|tues|thurs|thur|mon|tue|wed|thu|fri|sat|sun)(?![a-z])/i.test(next);
+
+    if (separator.trim() !== "" && nextIsDay) {     // "Mon/Wed": keep reading days
+      rest = next;
+      continue;
+    }
+    gap = separator;
+    rest = next;
+    break;
+  }
+  return { days: [...new Set(days)], gap, rest };
+}
+
+// Turns the time part into "1:00–4:00 PM". Returns null when it cannot understand it.
+function readTimes(text) {
+  const clock = "(\\d{1,2})(?::(\\d{2}))?\\s*([ap])?\\.?(?:m\\.?)?";
+  const range = new RegExp(`^${clock}\\s*(?:-|–|—|to|until)\\s*${clock}$`, "i");
+  const single = new RegExp(`^${clock}$`, "i");
+  const hour24 = (hour, meridiem) => (hour % 12) + (meridiem === "p" ? 12 : 0);
+  const show = (hour, minute) => `${hour}:${String(minute).padStart(2, "0")}`;
+  const label = (meridiem) => (meridiem === "p" ? "PM" : "AM");
+  const valid = (hour, minute) => hour >= 1 && hour <= 12 && minute <= 59;
+  const clean = text.trim();
+
+  let match = clean.match(range);
+  if (match) {
+    const [, h1, m1 = "0", a1, h2, m2 = "0", a2] = match;
+    const startHour = Number(h1), endHour = Number(h2), startMin = Number(m1), endMin = Number(m2);
+    if (!valid(startHour, startMin) || !valid(endHour, endMin)) return null;
+
+    let startMer = a1 ? a1.toLowerCase() : null;
+    let endMer = a2 ? a2.toLowerCase() : null;
+    const flip = (m) => (m === "a" ? "p" : "a");
+
+    if (!startMer && !endMer) {              // "1-4": classes are in the day, so 7-11 is morning, the rest afternoon
+      startMer = startHour >= 7 && startHour <= 11 ? "a" : "p";
+      endMer = startMer;
+      if (hour24(endHour, endMer) * 60 + endMin <= hour24(startHour, startMer) * 60 + startMin) endMer = flip(startMer);
+    } else if (!startMer) {                  // "11-1pm": the start is AM if it would end after it begins
+      startMer = endMer;
+      if (hour24(startHour, startMer) * 60 + startMin >= hour24(endHour, endMer) * 60 + endMin) startMer = flip(endMer);
+    } else if (!endMer) {                    // "9am-12": the end is in the same half of the day unless it would end before it begins
+      endMer = startMer;
+      if (hour24(endHour, endMer) * 60 + endMin <= hour24(startHour, startMer) * 60 + startMin) endMer = flip(startMer);
+    }
+
+    const start = show(startHour, startMin);
+    const end = show(endHour, endMin);
+    return startMer === endMer
+      ? `${start}–${end} ${label(endMer)}`
+      : `${start} ${label(startMer)}–${end} ${label(endMer)}`;
+  }
+
+  match = clean.match(single);
+  if (match) {
+    const [, h, m = "0", a] = match;
+    if (!valid(Number(h), Number(m))) return null;
+    const meridiem = a ? a.toLowerCase() : (Number(h) >= 7 && Number(h) <= 11 ? "a" : "p");
+    return `${show(Number(h), Number(m))} ${label(meridiem)}`;
+  }
+  return null;
+}
+
+// The whole schedule: "wed 1-4pm" -> "Wed · 1:00–4:00 PM". Text it does not understand stays as typed.
+function formatSchedule(text) {
+  const { days, rest } = readDays(text);
+  if (days.length === 0) return text.trim();
+
+  const timeText = rest.replace(/^[\s·:,@-]+/, "").replace(/^at\s+/i, "").trim();
+  if (timeText === "") return days.join("/");
+
+  return `${days.join("/")} · ${readTimes(timeText) ?? timeText}`;
+}
+
+// While typing: as soon as a day is followed by a space, add the " · " spacer
+function onScheduleInput(input, event) {
+  const deleting = (event.inputType || "").startsWith("delete");
+  if (!deleting && input.selectionStart === input.value.length) {
+    const { days, gap, rest } = readDays(input.value);
+    if (days.length > 0 && /^\s+$/.test(gap) && !rest.startsWith("·")) {
+      input.value = `${days.join("/")} · ${rest}`;
+    }
+  }
+  setClass("schedule", input.value);
+}
+
+// When leaving the box: tidy the whole thing, including the time
+function onScheduleBlur(input) {
+  input.value = formatSchedule(input.value);
+  setClass("schedule", input.value);
+}
+
 function setClass(field, value) {
   classForm[field] = value;
 
@@ -993,8 +1150,11 @@ function classDetailsHtml() {
       </div>
       <div class="grid gap-3 min-[420px]:grid-cols-2">
         ${textInput("section", "Section", "Section B")}
-        ${textInput("schedule", "Schedule", "Wed · 1:00–4:00 PM")}
+        <label class="block text-xs font-bold text-slate-600">Schedule
+          <input value="${esc(classForm.schedule)}" oninput="onScheduleInput(this, event)" onblur="onScheduleBlur(this)" placeholder="Wed · 1:00–4:00 PM" autocomplete="off" class="${fieldStyle}">
+        </label>
       </div>
+      <p class="-mt-1 text-[0.7rem] leading-4 text-slate-400">Schedule: type the day and time like “wed 1-4pm”. The spacer and format are added for you.</p>
       ${textInput("purpose", "Laboratory purpose", "Cell structure practical")}
       <div class="grid gap-3 min-[420px]:grid-cols-2">
         ${dateInput("date_needed", "Date needed", todayString())}
@@ -1074,6 +1234,8 @@ function setDrawer(open) {
 
 // Send the request to PHP (CREATE)
 async function submitRequest() {
+  classForm.schedule = formatSchedule(classForm.schedule);   // in case the box was never left
+
   // every class detail must be filled in
   const fields = ["professor_id", "course_code", "course_name", "section", "schedule", "purpose", "date_needed", "time_needed", "return_date", "return_time"];
   if (fields.some((field) => String(classForm[field]).trim() === "")) {
@@ -1224,7 +1386,7 @@ function historyInfo(r) {
 function historyPage() {
   const rows = requests.map((r) => {
     const [info1, info2] = historyInfo(r);
-    return recordRow(itemLabel(r), requestNumber(r), info1, info2, badge(loanStatus(r)));
+    return recordRow(itemLabel(r), requestNumber(r), info1, info2, statusBadge(r));
   }).join("");
 
   return pageHeader("Student workspace", "Request history", "Review your previous equipment requests and outcomes.") +
@@ -1252,7 +1414,7 @@ function requestActions(r) {
       ${badge(loanStatus(r))}
       <button onclick="updateRequest(${r.id}, 'return')" class="rounded-lg border border-slate-200 px-3 py-2 text-xs font-bold text-slate-700 transition hover:border-violet-300 hover:bg-violet-50">Mark returned</button>`;
   }
-  return badge(r.status);
+  return statusBadge(r);
 }
 
 // UPDATE: approve, decline, or mark returned
@@ -1583,9 +1745,13 @@ async function deleteItem(id) {
 
 // ---------- 14. ADMIN: BORROWING REQUESTS AND LENDING HISTORY ----------
 function requestsPage() {
-  const rows = requests.map((r) =>
-    recordRow(r.student, `${requestNumber(r)}${r.professor ? " · " + r.professor : ""}`, itemLabel(r), `Return ${whenText(r.return_date, r.return_time)}`, requestActions(r))
-  ).join("");
+  const rows = requests.map((r) => {
+    // A returned item shows when it was REALLY returned, not the promised time
+    const returnInfo = r.status === "Returned" && r.date_returned
+      ? `Returned ${formatDateTime(r.date_returned)}`
+      : `Return ${whenText(r.return_date, r.return_time)}`;
+    return recordRow(r.student, `${requestNumber(r)}${r.professor ? " · " + r.professor : ""}`, itemLabel(r), returnInfo, requestActions(r));
+  }).join("");
 
   return pageHeader("Admin workspace", "Borrowing requests", "Review and process requests submitted by students.") +
     recordsCard("All requests", rows, "No requests yet.");
@@ -1601,7 +1767,7 @@ function lendingPage() {
     if (r.status === "Returned") {
       [info1, info2] = historyInfo(r);
     }
-    return recordRow(itemLabel(r), `${requestNumber(r)} · ${r.student}`, info1, info2, badge(loanStatus(r)));
+    return recordRow(itemLabel(r), `${requestNumber(r)} · ${r.student}`, info1, info2, statusBadge(r));
   }).join("");
 
   return pageHeader("Admin workspace", "Lending history", "A complete log of equipment lending activity.") +
@@ -2551,7 +2717,7 @@ function buildNotifications() {
 
     if (role === "admin") {
       if (r.status === "Authorized") add("Request updates", `${r.id}:Authorized`, "indigo", "Authorization completed", `${r.professor || "A professor"} authorized request ${num}.`, r.date_confirmed);
-      if (r.status === "Returned") add("Request updates", `${r.id}:Returned`, "green", "Equipment returned", `${r.item} ${r.code} is available again.`, r.date_returned);
+      if (r.status === "Returned") add("Request updates", `${r.id}:Returned`, "green", "Equipment returned", `${r.item} ${r.code} is available again.${returnTiming(r)?.late ? " It was returned late." : ""}`, r.date_returned);
       if (loanStatus(r) === "Overdue") add("Return reminders", `${r.id}:overdue`, "rose", "Overdue item", `${r.student} has not returned ${itemLabel(r)}.`, todayString());
     }
   });
