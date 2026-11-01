@@ -43,6 +43,9 @@ const iconPaths = {
   plus: '<path d="M12 5v14M5 12h14"/>',
   search: '<circle cx="11" cy="11" r="7"/><path d="m20 20-4-4"/>',
   settings: '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1-2.8 2.8-.1-.1a1.7 1.7 0 0 0-1.9-.3 1.7 1.7 0 0 0-1 1.6v.2h-4V21a1.7 1.7 0 0 0-1-1.6 1.7 1.7 0 0 0-1.9.3l-.1.1L4.2 17l.1-.1a1.7 1.7 0 0 0 .3-1.9A1.7 1.7 0 0 0 3 14H3v-4h.2a1.7 1.7 0 0 0 1.4-1 1.7 1.7 0 0 0-.3-1.9L4.2 7 7 4.2l.1.1A1.7 1.7 0 0 0 9 4.6a1.7 1.7 0 0 0 1-1.6v-.2h4V3a1.7 1.7 0 0 0 1 1.6 1.7 1.7 0 0 0 1.9-.3l.1-.1L19.8 7l-.1.1a1.7 1.7 0 0 0-.3 1.9 1.7 1.7 0 0 0 1.6 1h.2v4H21a1.7 1.7 0 0 0-1.6 1Z"/>',
+  lock: '<rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/>',
+  eye: '<path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/>',
+  eyeoff: '<path d="M9.9 5.2A9.7 9.7 0 0 1 12 5c6.4 0 10 7 10 7a17 17 0 0 1-3.2 4.1M6.6 6.6A16.7 16.7 0 0 0 2 12s3.6 7 10 7a9.8 9.8 0 0 0 5.4-1.6"/><path d="m2 2 20 20"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/>',
   shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10Z"/><path d="m9 12 2 2 4-4"/>',
   thermometer: '<path d="M14 14.8V5a2 2 0 0 0-4 0v9.8a4 4 0 1 0 4 0Z"/><path d="M12 11v6"/>'
 };
@@ -2589,9 +2592,9 @@ function settingsPage() {
   ];
   const settings = loadNotificationSettings();
 
-  return pageHeader("Account", "Settings", "Manage your profile, notifications, and preferences.") + `
-    <div class="grid gap-5 lg:grid-cols-[1fr_20rem]">
-      <div class="rounded-2xl border border-slate-200 bg-white p-6">
+  return pageHeader("Account", "Settings", "Manage your profile, notifications, and security.") + `
+    <div class="grid items-start gap-5 lg:grid-cols-[1fr_20rem]">
+      <div class="rounded-2xl border border-slate-200 bg-white p-6 lg:col-start-1 lg:row-start-1">
         <h2 class="font-bold text-slate-950">Profile information</h2>
         <div class="mt-6 grid gap-5 sm:grid-cols-2">
           ${fields.map(([label, value, extra, id]) => `
@@ -2601,7 +2604,7 @@ function settingsPage() {
         </div>
         <button onclick="saveProfile()" class="mt-6 rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white">Save changes</button>
       </div>
-      <div class="rounded-2xl border border-slate-200 bg-white p-6">
+      <div class="self-start rounded-2xl border border-slate-200 bg-white p-6 lg:col-start-2 lg:row-start-1">
         <h2 class="font-bold text-slate-950">Notifications</h2>
         <div class="mt-5 space-y-5">
           ${Object.keys(defaultNotifications).map((name) => `
@@ -2610,7 +2613,137 @@ function settingsPage() {
             </label>`).join("")}
         </div>
       </div>
+      ${passwordCard()}
     </div>`;
+}
+
+// ---- Change password card ----
+const passwordFields = [
+  ["current", "Current password", "pw-current", "current-password"],
+  ["new", "New password", "pw-new", "new-password"],
+  ["confirm", "Confirm new password", "pw-confirm", "new-password"]
+];
+
+function passwordCard() {
+  return `
+    <div class="rounded-2xl border border-slate-200 bg-white p-6 lg:col-start-1 lg:row-start-2">
+      <div class="flex items-center gap-3">
+        <div class="flex size-10 shrink-0 items-center justify-center rounded-xl bg-violet-50 text-violet-600">${icon("lock", "size-5")}</div>
+        <div>
+          <h2 class="font-bold text-slate-950">Change password</h2>
+          <p class="mt-0.5 text-xs text-slate-500">Update your password to keep your account secure.</p>
+        </div>
+      </div>
+      <div class="mt-6 grid gap-5 sm:grid-cols-3">
+        ${passwordFields.map(([key, label, id, auto]) => `
+          <div>
+            <label class="block text-xs font-bold text-slate-600" for="${id}">${label}</label>
+            <div class="relative mt-2">
+              <input id="${id}" type="password" autocomplete="${auto}" oninput="passwordInput('${key}')"
+                class="h-11 w-full rounded-xl border border-slate-200 py-0 pl-4 pr-11 text-sm font-normal outline-none transition focus:border-violet-500 focus:ring-4 focus:ring-violet-100">
+              <button type="button" id="${id}-toggle" onclick="togglePasswordField('${id}')" aria-label="Show ${label.toLowerCase()}"
+                class="absolute right-2 top-1/2 flex size-8 -translate-y-1/2 items-center justify-center rounded-lg text-slate-400 hover:text-slate-600">${icon("eye", "size-5")}</button>
+            </div>
+            <p id="${id}-error" class="mt-1.5 min-h-4 text-[11px] leading-4 text-rose-600"></p>
+          </div>`).join("")}
+      </div>
+      <div class="mt-4 flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-5">
+        <p class="text-xs text-slate-500">Password must be at least 8 characters.</p>
+        <button id="pw-submit" onclick="changePassword()" class="rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white disabled:opacity-60">Update password</button>
+      </div>
+    </div>`;
+}
+
+// Show or hide the typed password
+function togglePasswordField(id) {
+  const input = $(id);
+  const hide = input.type === "text";
+  input.type = hide ? "password" : "text";
+  $(id + "-toggle").innerHTML = icon(hide ? "eye" : "eyeoff", "size-5");
+  $(id + "-toggle").setAttribute("aria-label", (hide ? "Show " : "Hide ") + passwordFields.find((f) => f[2] === id)[1].toLowerCase());
+}
+
+// Red border + message under one field (message "" clears it)
+function setPasswordError(key, message) {
+  const id = passwordFields.find((f) => f[0] === key)[2];
+  const input = $(id);
+  $(id + "-error").textContent = message;
+  input.classList.toggle("border-rose-500", message !== "");
+  input.classList.toggle("border-slate-200", message === "");
+  input.classList.toggle("focus:border-rose-500", message !== "");
+  input.classList.toggle("focus:ring-rose-100", message !== "");
+  input.classList.toggle("focus:border-violet-500", message === "");
+  input.classList.toggle("focus:ring-violet-100", message === "");
+  input.setAttribute("aria-invalid", message !== "" ? "true" : "false");
+}
+
+// Fields the person has already typed in (so we do not show errors on empty untouched boxes)
+const touchedPasswordFields = new Set();
+
+function passwordInput(key) {
+  touchedPasswordFields.add(key);
+  if (key === "new" && $("pw-confirm").value !== "") touchedPasswordFields.add("confirm");
+  validatePasswordForm();
+}
+
+// Returns true when everything is valid. Only touched fields show errors, unless showAll is true.
+function validatePasswordForm(showAll = false) {
+  const current = $("pw-current").value;
+  const next = $("pw-new").value;
+  const confirm = $("pw-confirm").value;
+
+  const errors = { current: "", new: "", confirm: "" };
+  if (current === "") errors.current = "Enter your current password.";
+  if (next.length < 8) errors.new = "Use at least 8 characters.";
+  else if (next === current) errors.new = "Choose a password different from your current one.";
+  if (next !== confirm) errors.confirm = "Passwords do not match.";
+
+  for (const key of Object.keys(errors)) {
+    setPasswordError(key, showAll || touchedPasswordFields.has(key) ? errors[key] : "");
+  }
+  return Object.values(errors).every((message) => message === "");
+}
+
+// UPDATE: change the password
+async function changePassword() {
+  if (!validatePasswordForm(true)) {
+    const firstBad = passwordFields.find(([, , id]) => $(id).getAttribute("aria-invalid") === "true");
+    if (firstBad) $(firstBad[2]).focus();
+    return;
+  }
+
+  const button = $("pw-submit");
+  button.disabled = true;
+  try {
+    const { ok, result } = await postJson("api/change_password.php", {
+      current_password: $("pw-current").value,
+      new_password: $("pw-new").value,
+      confirm_password: $("pw-confirm").value
+    });
+    if (!ok) {
+      if (result.field) {
+        touchedPasswordFields.add(result.field);
+        setPasswordError(result.field, result.error);
+        $(passwordFields.find((f) => f[0] === result.field)[2]).focus();
+      } else {
+        showToast(result.error, true);
+      }
+      return;
+    }
+    // Success: clear the boxes and hide the passwords again
+    for (const [key, , id] of passwordFields) {
+      $(id).value = "";
+      $(id).type = "password";
+      $(id + "-toggle").innerHTML = icon("eye", "size-5");
+      setPasswordError(key, "");
+    }
+    touchedPasswordFields.clear();
+    showToast(result.message);
+  } catch (error) {
+    showToast("Unable to connect to the server.", true);
+  } finally {
+    button.disabled = false;
+  }
 }
 
 // UPDATE: save the profile
