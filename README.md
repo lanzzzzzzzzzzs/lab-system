@@ -20,7 +20,7 @@ Every step is saved in a MySQL database, so nothing gets lost and every number o
 - Dark / light mode switch (also on the login page), remembered after a refresh
 - Notification bell: new decisions, due-soon and overdue items, and out-of-stock alerts. The notification choices in Settings decide what appears
 - The page data refreshes by itself every 30 seconds (auto-refresh)
-- Settings page: update your profile (name, email, department)
+- Settings page: update your profile (name, email, department) and change your password (current password required, at least 8 characters, show/hide toggle)
 - Help center with guides
 - Students and professors can contact the laboratory (the message is saved in the database) and follow it in **Support updates**, where an automated "Request received" notice explains that the reply arrives by email
 - Responsive layout for desktop, tablet, and mobile
@@ -81,7 +81,7 @@ lab-system/
 │   ├── db.php          database connection, session, and helper functions
 │   ├── config.php      database settings and secret codes (NOT on GitHub)
 │   ├── config.example.php   a safe copy of config.php
-│   ├── register.php, login.php, logout.php, me.php, update_profile.php
+│   ├── register.php, login.php, logout.php, me.php, update_profile.php, change_password.php
 │   ├── items.php, item_save.php, item_delete.php
 │   ├── borrow.php, requests.php, class_review.php, request_update.php
 │   ├── users.php, user_update.php, user_delete.php
