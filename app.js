@@ -68,6 +68,7 @@ let lastLoadError = ""; // which files failed to load last time (so the red mess
 // Messages page / Support updates page
 let selectedMessageId = null;   // the message that is open
 let messageFilter = "All";      // "All" or "Unread" (administrator)
+let messageBox = "inbox";       // "inbox" or "archived" (administrator)
 let messageQuery = "";          // text in the search box
 
 // These variables remember what the user is doing right now.
@@ -657,7 +658,7 @@ async function loadData() {
       requests = requestsData.requests.map((row) => ({ ...row, id: Number(row.id), quantity: Number(row.quantity) }));
     }
     if (Array.isArray(messagesData?.messages)) {
-      messages = messagesData.messages.map((row) => ({ ...row, id: Number(row.id), user_id: Number(row.user_id) }));
+      messages = messagesData.messages.map((row) => ({ ...row, id: Number(row.id), user_id: Number(row.user_id), archived: Number(row.archived) }));
     }
     if (Array.isArray(usersData?.users)) {
       users = usersData.users.map((row) => ({ ...row, id: Number(row.id) }));
@@ -693,7 +694,7 @@ function renderNav() {
   const yellowCount = (count) => `<span class="ml-auto rounded-full bg-amber-400 px-2 py-0.5 text-xs font-bold text-slate-950">${count}</span>`;
   const violetCount = (count) => count === 0 ? "" : `<span class="ml-auto rounded-full bg-violet-600 px-2 py-0.5 text-xs font-bold text-white">${count}</span>`;
 
-  const unreadMessages = messages.filter((m) => !m.read_at).length;                        // for the administrator
+  const unreadMessages = messages.filter((m) => !m.archived && !m.read_at).length;                        // for the administrator
   const seenUpdates = loadSupportSeen();
   const newUpdates = messages.filter((m) => !seenUpdates.includes(m.id)).length;           // for students and professors
 
@@ -799,6 +800,7 @@ async function go(newPanel) {
   selectedMessageId = null;
   messageQuery = "";
   messageFilter = "All";
+  messageBox = "inbox";
   closeMenu();
   await loadData();
   if (currentUser === null) return;
@@ -2306,6 +2308,7 @@ function tagChip(topic) {
 function visibleMessages() {
   const search = messageQuery.toLowerCase();
   return messages.filter((m) => {
+    if (role === "admin" && Boolean(m.archived) !== (messageBox === "archived")) return false;
     if (messageFilter === "Unread" && m.read_at) return false;
     return [m.sender, messageSubject(m), m.message, m.topic].some((text) => text.toLowerCase().includes(search));
   });
@@ -2323,7 +2326,9 @@ function messageListHtml() {
   if (list.length === 0) {
     const empty = messages.length === 0 && role !== "admin"
       ? "You have not sent any requests yet. Use Contact laboratory in the Help center."
-      : "No messages found.";
+      : role === "admin" && messageBox === "archived" && messages.every((m) => !m.archived)
+        ? "No archived messages yet. Use the archive button on a message to move it here."
+        : "No messages found.";
     return `<p class="p-8 text-center text-sm text-slate-500">${empty}</p>`;
   }
 
@@ -2397,10 +2402,10 @@ function setMessageQuery(text) {
   $("message-count").textContent = messageCountText();
 }
 
-// UPDATE: archive (hide) a message from the inbox
-async function archiveMessage(id) {
+// UPDATE: move a message to the Archived tab, or back to the inbox
+async function archiveMessage(id, restore = false) {
   try {
-    const { ok, result } = await postJson("api/message_update.php", { id, action: "archive" });
+    const { ok, result } = await postJson("api/message_update.php", { id, action: restore ? "unarchive" : "archive" });
     if (!ok) {
       showToast(result.error, true);
       return;
@@ -2412,6 +2417,15 @@ async function archiveMessage(id) {
   } catch (error) {
     showToast("Unable to connect to the server.", true);
   }
+}
+
+// Switch between the Inbox and Archived tabs
+function setMessageBox(name) {
+  messageBox = name;
+  selectedMessageId = null;
+  messageQuery = "";
+  messageFilter = "All";
+  renderContent();
 }
 
 // The search box above the list
@@ -2426,8 +2440,15 @@ function messageSearchBox() {
 
 // --- Administrator: the inbox ---
 function messagesPage() {
-  const unread = messages.filter((m) => !m.read_at).length;
-  const selected = messages.find((m) => m.id === selectedMessageId);
+  const unread = messages.filter((m) => !m.archived && !m.read_at).length;
+  const inboxCount = messages.filter((m) => !m.archived).length;
+  const archivedCount = messages.filter((m) => m.archived).length;
+  const selected = visibleMessages().find((m) => m.id === selectedMessageId);
+
+  const boxTab = (key, label, iconName, count) => `
+    <button onclick="setMessageBox('${key}')" class="flex items-center gap-2 border-b-2 px-1 pb-3 text-xs font-bold ${messageBox === key ? "border-violet-600 text-violet-700" : "border-transparent text-slate-500 hover:text-slate-800"}">
+      ${icon(iconName, "size-4")}${label}<span class="rounded-full bg-slate-100 px-1.5 py-0.5 text-[0.65rem] ${messageBox === key ? "text-violet-700" : "text-slate-500"}">${count}</span>
+    </button>`;
 
   const unreadCard = `
     <div class="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4">
@@ -2445,12 +2466,15 @@ function messagesPage() {
   return pageHeader("Admin workspace", "Messages", "Review and respond to requests from students and faculty.", unreadCard) + `
     <div class="grid overflow-hidden rounded-2xl border border-slate-200 bg-white lg:grid-cols-[24rem_1fr]">
       <div class="${selected ? "hidden lg:block" : ""} border-slate-200 lg:border-r">
+        <div class="flex gap-6 border-b border-slate-100 px-5 pt-4">
+          ${boxTab("inbox", "Inbox", "inbox", inboxCount)}${boxTab("archived", "Archived", "archive", archivedCount)}
+        </div>
         <div class="flex items-center gap-3 p-5">
           ${messageSearchBox()}
           <div class="flex shrink-0 rounded-xl bg-slate-100 p-1">${tabs}</div>
         </div>
         <div class="flex items-center justify-between border-y border-slate-100 bg-slate-50 px-5 py-3 text-[0.65rem] font-bold uppercase tracking-wider text-slate-400">
-          <span>Inbox</span><span id="message-count">${messageCountText()}</span>
+          <span>${messageBox === "archived" ? "Archived" : "Inbox"}</span><span id="message-count">${messageCountText()}</span>
         </div>
         <div id="message-list" class="max-h-[40rem] overflow-y-auto">${messageListHtml()}</div>
       </div>
@@ -2482,7 +2506,7 @@ function adminMessageDetail(m) {
           <div class="mt-1 text-xs text-slate-400">${esc(m.student_id || "No ID")} · ${esc(m.department || "No department")}</div>
         </div>
       </div>
-      <button onclick="archiveMessage(${m.id})" class="flex size-10 shrink-0 items-center justify-center rounded-xl border border-slate-200 text-slate-500 hover:bg-slate-50" aria-label="Archive message" title="Archive">${icon("archive", "size-4")}</button>
+      <button onclick="archiveMessage(${m.id}, ${Boolean(m.archived)})" class="group flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl border border-slate-200 px-3 text-xs font-bold text-slate-500 transition hover:border-violet-300 hover:bg-violet-50 hover:text-violet-700" aria-label="${m.archived ? "Move back to inbox" : "Archive message"}" title="${m.archived ? "Move back to inbox" : "Archive"}">${icon(m.archived ? "inbox" : "archive", "size-4")}<span class="hidden group-hover:inline">${m.archived ? "Move to inbox" : "Archive"}</span></button>
     </div>
 
     <div class="flex-1 p-5 sm:p-6">
@@ -2866,7 +2890,7 @@ function buildNotifications() {
 
   messages.forEach((m) => {
     const day = m.created_at.slice(0, 10);
-    if (role === "admin" && !m.read_at) {
+    if (role === "admin" && !m.archived && !m.read_at) {
       add("Request updates", `msg:${m.id}`, "indigo", "New message", `${m.sender} sent: ${messageSubject(m)}`, day);
     }
     if (role !== "admin") {
