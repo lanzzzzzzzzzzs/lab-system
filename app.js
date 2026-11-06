@@ -170,6 +170,11 @@ function plural(count, word) {
 }
 
 // --- requests ---
+// The student ID typed on the request, in the purple line used by the lists
+function studentIdLine(r) {
+  return r.student_id ? `<div class="mt-0.5 text-xs font-semibold text-violet-600">Student ID: ${esc(r.student_id)}</div>` : "";
+}
+
 function requestNumber(request) {      // 7 -> "REQ-0007"
   return `REQ-${String(request.id).padStart(4, "0")}`;
 }
@@ -247,6 +252,7 @@ function conditionLabel(item) {
 // The class details a student types in the request drawer
 function newClassForm() {
   return {
+    student_id: "",
     professor_id: "",
     course_code: "",
     course_name: "",
@@ -1141,6 +1147,7 @@ function classDetailsHtml() {
         <h3 class="text-sm font-bold text-slate-950">Class details</h3>
         <p class="mt-1 text-xs leading-5 text-slate-500">Your professor must confirm that this request supports your laboratory class.</p>
       </div>
+      ${textInput("student_id", "Student ID", "e.g. 2024-00123")}
       <label class="block text-xs font-bold text-slate-600">Professor
         <select onchange="setClass('professor_id', this.value)" class="${fieldStyle}">
           <option value="">Choose your professor</option>
@@ -1240,7 +1247,7 @@ async function submitRequest() {
   classForm.schedule = formatSchedule(classForm.schedule);   // in case the box was never left
 
   // every class detail must be filled in
-  const fields = ["professor_id", "course_code", "course_name", "section", "schedule", "purpose", "date_needed", "time_needed", "return_date", "return_time"];
+  const fields = ["student_id", "professor_id", "course_code", "course_name", "section", "schedule", "purpose", "date_needed", "time_needed", "return_date", "return_time"];
   if (fields.some((field) => String(classForm[field]).trim() === "")) {
     showToast("Please complete the class details.", true);
     return;
@@ -1463,12 +1470,13 @@ function overviewPage() {
           <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-600">${esc(initials)}</div>
           <div class="min-w-0">
             <div class="truncate text-sm font-bold text-slate-900">${esc(r.student)}</div>
-            <div class="mt-0.5 truncate text-xs text-slate-400">${esc(r.department || "Student")}</div>
+            ${studentIdLine(r) || `<div class="mt-0.5 truncate text-xs text-slate-400">${esc(r.department || "Student")}</div>`}
+            <div class="mt-0.5 truncate text-xs text-slate-400">${requestNumber(r)}</div>
           </div>
         </div>
         <div>
           <div class="truncate text-sm font-semibold text-slate-700">${esc(itemLabel(r))}</div>
-          <div class="mt-0.5 text-xs text-slate-400">${esc(r.code)} · ${requestNumber(r)}</div>
+          <div class="mt-0.5 text-xs text-slate-400">${esc(r.code)}</div>
         </div>
         <div class="text-xs font-semibold text-slate-500">${formatDate(r.date_requested)}</div>
         <div class="flex flex-wrap items-center justify-end gap-2">${requestActions(r)}</div>
@@ -1753,7 +1761,7 @@ function requestsPage() {
     const returnInfo = r.status === "Returned" && r.date_returned
       ? `Returned ${formatDateTime(r.date_returned)}`
       : `Return ${whenText(r.return_date, r.return_time)}`;
-    return recordRow(r.student, `${requestNumber(r)}${r.professor ? " · " + r.professor : ""}`, itemLabel(r), returnInfo, requestActions(r));
+    return recordRow(r.student, `${r.student_id ? "Student ID: " + r.student_id + " · " : ""}${requestNumber(r)}${r.professor ? " · " + r.professor : ""}`, itemLabel(r), returnInfo, requestActions(r));
   }).join("");
 
   return pageHeader("Admin workspace", "Borrowing requests", "Review and process requests submitted by students.") +
@@ -1770,7 +1778,7 @@ function lendingPage() {
     if (r.status === "Returned") {
       [info1, info2] = historyInfo(r);
     }
-    return recordRow(itemLabel(r), `${requestNumber(r)} · ${r.student}`, info1, info2, statusBadge(r));
+    return recordRow(itemLabel(r), `${requestNumber(r)} · ${r.student}${r.student_id ? " · " + r.student_id : ""}`, info1, info2, statusBadge(r));
   }).join("");
 
   return pageHeader("Admin workspace", "Lending history", "A complete log of equipment lending activity.") +
@@ -1798,6 +1806,7 @@ function professorRow(r, rightHtml) {
         <div class="flex size-10 shrink-0 items-center justify-center rounded-full bg-indigo-50 text-xs font-bold text-indigo-600">${esc(initialsOf(r.student))}</div>
         <div class="min-w-0">
           <div class="truncate text-sm font-bold text-slate-900">${esc(r.student)}</div>
+          ${studentIdLine(r)}
           <div class="mt-0.5 text-xs text-slate-400">${requestNumber(r)} · Needed ${whenText(r.date_needed, r.time_needed)}</div>
         </div>
       </div>
