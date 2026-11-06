@@ -4,30 +4,12 @@
 --
 -- How to use:  phpMyAdmin -> Import tab -> choose this file -> Import.
 --
--- WARNING: this file deletes the LabTrack tables and creates them again.
--- If the database already holds your data, importing this file ERASES it.
---
--- On a web host that gives you a ready-made database: delete the two lines
--- marked "XAMPP only" below, then import this file into the database the host
--- created for you.
+-- Select your database first (phpMyAdmin: click it in the left list),
+-- then import this file. It only creates tables, so the database
+-- should be empty.
 -- =====================================================
 
 SET NAMES utf8mb4;
-
--- XAMPP only: create the database and select it
-CREATE DATABASE IF NOT EXISTS lab_borrowing CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
-USE lab_borrowing;   -- XAMPP only
-
-
--- Remove old versions of the tables (the ones that depend on others go first)
-
-DROP TABLE IF EXISTS borrow_requests;
-DROP TABLE IF EXISTS support_messages;
-DROP TABLE IF EXISTS account_attempts;
-DROP TABLE IF EXISTS equipment;
-DROP TABLE IF EXISTS categories;
-DROP TABLE IF EXISTS users;
-
 
 -- table users  (students, professors, and administrators)
 
@@ -84,6 +66,7 @@ CREATE TABLE borrow_requests (
     , equipment_id      INT                                                                 NOT NULL
     , professor_id      INT                                                                 NULL                        -- the professor who confirms the class
     , quantity          INT                                                                 NOT NULL DEFAULT 1          -- how many units were requested
+    , student_id        VARCHAR (30)                                                        NULL                        -- the student ID typed on the request
     , course_code       VARCHAR (20)                                                        NULL                        -- class details written by the student
     , course_name       VARCHAR (100)                                                       NULL
     , section           VARCHAR (30)                                                        NULL                        -- for example: Section B
