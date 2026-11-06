@@ -1,5 +1,5 @@
 <?php
-// UPDATE: an administrator marks a message as read, or archives it.
+// UPDATE: an administrator marks a message as read, archives it, or moves it back to the inbox.
 // There is no "reply" here on purpose: replies are sent through Outlook.
 require __DIR__ . "/db.php";
 
@@ -28,6 +28,11 @@ if ($action === "read") {
 if ($action === "archive") {
     $pdo->prepare("UPDATE support_messages SET archived = 1 WHERE id = ?")->execute([$id]);
     sendJson(["message" => "Message archived."]);
+}
+
+if ($action === "unarchive") {
+    $pdo->prepare("UPDATE support_messages SET archived = 0 WHERE id = ?")->execute([$id]);
+    sendJson(["message" => "Message moved back to the inbox."]);
 }
 
 sendJson(["error" => "Unknown action."], 400);
