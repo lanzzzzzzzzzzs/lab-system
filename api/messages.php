@@ -1,6 +1,7 @@
 <?php
 // READ: contact messages.
-// An administrator sees everyone's messages (except the archived ones).
+// An administrator sees everyone's messages, including the archived ones
+// (the Messages page splits them into the Inbox and Archived tabs).
 // A student or professor sees only their own.
 require __DIR__ . "/db.php";
 
@@ -12,7 +13,7 @@ $sql = "SELECT m.id, m.user_id, u.full_name AS sender, u.email, u.role, u.studen
         JOIN users u ON u.id = m.user_id";
 
 if ($_SESSION["role"] === "admin") {
-    $stmt = $pdo->query($sql . " WHERE m.archived = 0 ORDER BY m.id DESC");
+    $stmt = $pdo->query($sql . " ORDER BY m.id DESC");
 } else {
     $stmt = $pdo->prepare($sql . " WHERE m.user_id = ? ORDER BY m.id DESC");
     $stmt->execute([$_SESSION["user_id"]]);
