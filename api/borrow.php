@@ -24,6 +24,7 @@ function validTime($text) {
 
 $input = getInput();
 $items       = $input["items"] ?? [];          // [ { "id": 1, "quantity": 2 }, ... ]
+$studentId   = trim($input["student_id"] ?? "");
 $professorId = (int) ($input["professor_id"] ?? 0);
 $courseCode  = trim($input["course_code"] ?? "");
 $courseName  = trim($input["course_name"] ?? "");
@@ -40,10 +41,10 @@ if (!is_array($items) || count($items) === 0) {
 }
 
 // The class details are required: they are what the professor confirms
-if ($professorId < 1 || $courseCode === "" || $courseName === "" || $section === "" || $schedule === "" || $purpose === "") {
+if ($studentId === "" || $professorId < 1 || $courseCode === "" || $courseName === "" || $section === "" || $schedule === "" || $purpose === "") {
     sendJson(["error" => "Please complete the class details."], 400);
 }
-if (strlen($courseCode) > 20 || strlen($courseName) > 100 || strlen($section) > 30 || strlen($schedule) > 100 || strlen($purpose) > 200) {
+if (strlen($studentId) > 30 || strlen($courseCode) > 20 || strlen($courseName) > 100 || strlen($section) > 30 || strlen($schedule) > 100 || strlen($purpose) > 200) {
     sendJson(["error" => "One of the class details is too long."], 400);
 }
 
@@ -98,14 +99,14 @@ foreach ($wanted as $itemId => $qty) {
 // Save one row per item, all together (a transaction). The status starts as Pending.
 $insert = $pdo->prepare(
     "INSERT INTO borrow_requests
-        (user_id, equipment_id, quantity, professor_id, course_code, course_name, section, schedule, purpose,
+        (user_id, equipment_id, quantity, professor_id, student_id, course_code, course_name, section, schedule, purpose,
          date_needed, time_needed, return_date, return_time)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
+     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)"
 );
 $pdo->beginTransaction();
 foreach ($wanted as $itemId => $qty) {
     $insert->execute([
-        $_SESSION["user_id"], $itemId, $qty, $professorId,
+        $_SESSION["user_id"], $itemId, $qty, $professorId, $studentId,
         $courseCode, $courseName, $section, $schedule, $purpose,
         $dateNeeded, $timeNeeded, $returnDate, $returnTime
     ]);
