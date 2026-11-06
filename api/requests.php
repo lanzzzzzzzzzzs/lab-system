@@ -5,7 +5,7 @@ require __DIR__ . "/db.php";
 
 requireLogin();
 
-$sql = "SELECT r.id, r.user_id, u.full_name AS student, u.department, r.equipment_id, r.quantity,
+$sql = "SELECT r.id, r.user_id, u.full_name AS student, COALESCE(r.student_id, u.student_id) AS student_id, u.department, r.equipment_id, r.quantity,
                e.name AS item, e.code, r.professor_id, p.full_name AS professor,
                r.course_code, r.course_name, r.section, r.schedule, r.purpose,
                r.date_requested, r.date_needed, r.time_needed, r.return_date, r.return_time,
