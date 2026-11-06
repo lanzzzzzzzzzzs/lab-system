@@ -32,10 +32,7 @@ if ($user["status"] === "Suspended") {
 
 // The card the person chose must match the real role saved in the database
 if ($user["role"] !== $role) {
-    if ($user["role"] === "admin") {
-        sendJson(["error" => "This is an administrator account. Choose Administrator."], 403);
-    }
-    sendJson(["error" => "This is a student account. Choose Student."], 403);
+    sendJson(["error" => "Please choose the correct role."], 403);
 }
 
 // Log in: new session id (security), then remember who this is
