@@ -124,6 +124,7 @@ The whole database is in one file. Open `http://localhost/phpmyadmin`, go to the
 | `borrow_requests` | Every request: student, item, quantity, professor, class details, planned and actual dates and times, status |
 | `support_messages` | Messages sent from the Contact page (subject, topic, and whether an administrator read or archived it) |
 | `account_attempts` | Log of every attempt to create a professor or administrator account |
+| `login_attempts` | Wrong passwords at sign in (5 in a row = 15 minute time out, see Security) |
 
 A request moves through these statuses: **Pending** (waiting for the professor) → **Authorized** (professor confirmed) → **Approved** (laboratory released it) → **Returned**. It can be **Declined** by the professor or the laboratory on the way.
 
@@ -135,6 +136,7 @@ A request moves through these statuses: **Pending** (waiting for the professor) 
 - Every input is validated again on the server, not only in the browser
 - The server decides every role. The browser cannot make itself an administrator or professor
 - Every request checks the session, the role, and the account status in the database, so a suspended, removed, or demoted account loses access immediately
+- Sign-in time out: after 5 wrong passwords for the same email, sign in is blocked for 15 minutes (a live countdown is shown). The rule is enforced in `api/login.php`, applies to unknown emails too, and a correct sign in resets the counter. Change it with `$MAX_LOGIN_ATTEMPTS` and `$LOCKOUT_MINUTES` in `config.php`
 - Professor and administrator accounts need a secret code, and every attempt is logged
 - Secret codes and database passwords live in `config.php`, which is excluded from Git
 
