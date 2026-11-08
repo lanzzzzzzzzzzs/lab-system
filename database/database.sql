@@ -118,6 +118,18 @@ CREATE TABLE account_attempts (
     , CONSTRAINT      attempt_pk     PRIMARY KEY (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- table login_attempts  (wrong passwords; 5 in a row = temporary time out, see api/login.php)
+
+CREATE TABLE login_attempts (
+
+      id              INT            NOT NULL AUTO_INCREMENT
+    , email           VARCHAR (100)  NOT NULL
+    , ip_address      VARCHAR (45)   NULL
+    , created_at      TIMESTAMP      DEFAULT CURRENT_TIMESTAMP
+    , CONSTRAINT      login_attempt_pk  PRIMARY KEY (id)
+    , INDEX           login_attempt_email_ix (email, created_at)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- categories Inserted VALUES
 
 INSERT INTO categories (name)
