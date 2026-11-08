@@ -492,8 +492,28 @@ function forgotPassword() {
 }
 
 // Runs when the form is submitted (Sign in OR Create account)
+// Too many wrong passwords: show the time out with a countdown that ticks every second
+let lockoutTimer = null;
+function showLockout(seconds) {
+  clearInterval(lockoutTimer);
+  const end = Date.now() + seconds * 1000;
+  const tick = () => {
+    const left = Math.ceil((end - Date.now()) / 1000);
+    if (left <= 0) {
+      clearInterval(lockoutTimer);
+      showAuthMessage("The time out is over. You can try again.", false);
+      return;
+    }
+    const m = Math.floor(left / 60), s = String(left % 60).padStart(2, "0");
+    showAuthMessage(`Too many failed attempts. Try again in ${m}:${s}.`);
+  };
+  tick();
+  lockoutTimer = setInterval(tick, 1000);
+}
+
 async function handleLogin(event) {
   event.preventDefault(); // stop the page from reloading
+  clearInterval(lockoutTimer);   // a new try replaces any old countdown
 
   const email = $("login-email").value.trim();
   const password = $("login-password").value;
@@ -509,7 +529,11 @@ async function handleLogin(event) {
     } else {
       const { ok, result } = await postJson("api/login.php", { email, password, role: loginRole });
       if (!ok) {
-        showAuthMessage(result.error);
+        if (result.locked) {
+          showLockout(result.retry_after);   // time out: show a live countdown
+        } else {
+          showAuthMessage(result.error);
+        }
         return;
       }
       await startSession(result.user);
