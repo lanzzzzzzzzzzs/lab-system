@@ -8,4 +8,4 @@ $DB_PASS = "your_database_password";
 $ADMIN_CODE = "your_admin_code";
 $PROFESSOR_CODE = "your_professor_code";
 $MAX_LOGIN_ATTEMPTS = 5;
-$LOCKOUT_MINUTES = 20;
+$LOCKOUT_MINUTES = 15;
