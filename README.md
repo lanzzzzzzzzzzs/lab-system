@@ -136,7 +136,7 @@ A request moves through these statuses: **Pending** (waiting for the professor) 
 - Every input is validated again on the server, not only in the browser
 - The server decides every role. The browser cannot make itself an administrator or professor
 - Every request checks the session, the role, and the account status in the database, so a suspended, removed, or demoted account loses access immediately
-- Sign-in time out: after 5 wrong passwords for the same email, sign in is blocked for 20 minutes (a live countdown is shown). The rule is enforced in `api/login.php`, applies to unknown emails too, and a correct sign in resets the counter. Change it with `$MAX_LOGIN_ATTEMPTS` and `$LOCKOUT_MINUTES` in `config.php`
+- Sign-in time out: after 5 wrong passwords for the same email, sign in is blocked for 15 minutes (a live countdown is shown). The rule is enforced in `api/login.php`, applies to unknown emails too, and a correct sign in resets the counter. Change it with `$MAX_LOGIN_ATTEMPTS` and `$LOCKOUT_MINUTES` in `config.php`
 - Professor and administrator accounts need a secret code, and every attempt is logged
 - Secret codes and database passwords live in `config.php`, which is excluded from Git
 
