@@ -1415,7 +1415,7 @@ function historyInfo(r) {
   if (r.status === "Authorized") return [`Authorized ${formatDateTime(r.date_confirmed)}`, "Waiting for the laboratory"];
   if (r.status === "Approved") return [`Borrowed ${formatDateTime(r.date_reviewed)}`, `Due ${whenText(r.return_date, r.return_time)}`];
   if (r.status === "Declined") return [`Declined ${formatDateTime(r.date_reviewed)}`, "Not approved"];
-  if (r.status === "Returned") return [`Returned ${formatDateTime(r.date_returned)}`, `Kept ${durationText(r.date_reviewed, r.date_returned)}`];
+  if (r.status === "Returned") return [`Borrowed ${formatDateTime(r.date_reviewed)}`, `Returned ${formatDateTime(r.date_returned)}`];
   return [`Requested ${formatDate(r.date_requested)}`, r.professor ? `Waiting for ${r.professor}` : `Return by ${whenText(r.return_date, r.return_time)}`];
 }
 
