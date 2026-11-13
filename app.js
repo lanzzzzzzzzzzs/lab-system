@@ -1323,15 +1323,19 @@ function closeMenu() {
 // ---------- 10. LISTS (used by several pages) ----------
 
 // One row of a list. "right" is HTML: a badge or buttons.
-function recordRow(title, sub, info1, info2, right) {
+// "info3" is optional: when it is given, the row shows a third info column.
+function recordRow(title, sub, info1, info2, right, info3 = "") {
+  const columns = info3 === "" ? "sm:grid-cols-[1.2fr_.8fr_.7fr_auto]" : "sm:grid-cols-[1.2fr_.8fr_.7fr_.8fr_auto]";
+  const thirdColumn = info3 === "" ? "" : `<div class="text-xs text-slate-500">${esc(info3)}</div>`;
   return `
-    <div class="record-row grid gap-3 p-5 sm:grid-cols-[1.2fr_.8fr_.7fr_auto] sm:items-center">
+    <div class="record-row grid gap-3 p-5 ${columns} sm:items-center">
       <div>
         <div class="text-sm font-bold">${esc(title)}</div>
         <div class="mt-1 text-xs text-slate-400">${esc(sub)}</div>
       </div>
       <div class="text-xs font-semibold text-slate-500">${esc(info1)}</div>
       <div class="text-xs text-slate-500">${esc(info2)}</div>
+      ${thirdColumn}
       <div class="flex flex-wrap items-center gap-2 sm:justify-end">${right}</div>
     </div>`;
 }
@@ -1402,19 +1406,22 @@ function bannerHtml(title, text) {
     </div>`;
 }
 
-// The two info columns of a history row depend on the status
+// The three info columns of a history row: what happened, "Return by" (the date and time
+// the student typed), and the outcome. The first and last depend on the status.
 function historyInfo(r) {
-  if (r.status === "Authorized") return [`Authorized ${formatDateTime(r.date_confirmed)}`, "Waiting for the laboratory"];
-  if (r.status === "Approved") return [`Borrowed ${formatDateTime(r.date_reviewed)}`, `Due ${whenText(r.return_date, r.return_time)}`];
-  if (r.status === "Declined") return [`Declined ${formatDateTime(r.date_reviewed)}`, "Not approved"];
-  if (r.status === "Returned") return [`Borrowed ${formatDateTime(r.date_reviewed)}`, `Returned ${formatDateTime(r.date_returned)}`];
-  return [`Requested ${formatDate(r.date_requested)}`, r.professor ? `Waiting for ${r.professor}` : `Return by ${whenText(r.return_date, r.return_time)}`];
+  const returnBy = `Return by ${whenText(r.return_date, r.return_time)}`;
+
+  if (r.status === "Authorized") return [`Authorized ${formatDateTime(r.date_confirmed)}`, returnBy, "Waiting for the laboratory"];
+  if (r.status === "Approved") return [`Borrowed ${formatDateTime(r.date_reviewed)}`, returnBy, "Not returned yet"];
+  if (r.status === "Declined") return [`Declined ${formatDateTime(r.date_reviewed)}`, returnBy, "Not approved"];
+  if (r.status === "Returned") return [`Borrowed ${formatDateTime(r.date_reviewed)}`, returnBy, `Returned ${formatDateTime(r.date_returned)}`];
+  return [`Requested ${formatDate(r.date_requested)}`, returnBy, r.professor ? `Waiting for ${r.professor}` : "Waiting for the professor"];
 }
 
 function historyPage() {
   const rows = requests.map((r) => {
-    const [info1, info2] = historyInfo(r);
-    return recordRow(itemLabel(r), requestNumber(r), info1, info2, statusBadge(r));
+    const [info1, info2, info3] = historyInfo(r);
+    return recordRow(itemLabel(r), requestNumber(r), info1, info2, statusBadge(r), info3);
   }).join("");
 
   return pageHeader("Student workspace", "Request history", "Review your previous equipment requests and outcomes.") +
@@ -1791,12 +1798,10 @@ function lendingPage() {
   const lent = requests.filter((r) => r.status === "Approved" || r.status === "Returned");
 
   const rows = lent.map((r) => {
-    let info1 = `Borrowed ${formatDateTime(r.date_reviewed)}`;
-    let info2 = `Due ${whenText(r.return_date, r.return_time)}`;
-    if (r.status === "Returned") {
-      [info1, info2] = historyInfo(r);
-    }
-    return recordRow(itemLabel(r), `${requestNumber(r)} · ${r.student}${r.student_id ? " · " + r.student_id : ""}`, info1, info2, statusBadge(r));
+    const borrowed = `Borrowed ${formatDateTime(r.date_reviewed)}`;
+    const promised = `Return by ${whenText(r.return_date, r.return_time)}`;        // the return date and time the student typed
+    const returned = r.status === "Returned" ? `Returned ${formatDateTime(r.date_returned)}` : "Not returned yet";
+    return recordRow(itemLabel(r), `${requestNumber(r)} · ${r.student}${r.student_id ? " · " + r.student_id : ""}`, borrowed, promised, statusBadge(r), returned);
   }).join("");
 
   return pageHeader("Admin workspace", "Lending history", "A complete log of equipment lending activity.") +
@@ -1817,7 +1822,11 @@ function classColumn(r) {
 }
 
 // One row of the professor's lists. "rightHtml" is a badge or the two buttons.
-function professorRow(r, rightHtml) {
+// "showReturnBy" adds the return date and time the student typed (used in Approval history).
+function professorRow(r, rightHtml, showReturnBy = false) {
+  const returnByLine = showReturnBy
+    ? `<div class="mt-0.5 text-xs text-slate-400">Return by ${whenText(r.return_date, r.return_time)}</div>`
+    : "";
   return `
     <div class="grid gap-4 p-5 md:grid-cols-[1.1fr_1.4fr_1fr_auto] md:items-center">
       <div class="flex items-center gap-3">
@@ -1826,6 +1835,7 @@ function professorRow(r, rightHtml) {
           <div class="truncate text-sm font-bold text-slate-900">${esc(r.student)}</div>
           ${studentIdLine(r)}
           <div class="mt-0.5 text-xs text-slate-400">${requestNumber(r)} · Needed ${whenText(r.date_needed, r.time_needed)}</div>
+          ${returnByLine}
         </div>
       </div>
       ${classColumn(r)}
@@ -1876,7 +1886,7 @@ function approvalsPage() {
     const label = decision === "Declined"
       ? `<span class="rounded-full bg-rose-50 px-2.5 py-1 text-[0.68rem] font-bold text-rose-600">Declined</span>`
       : `<span class="rounded-full bg-violet-50 px-2.5 py-1 text-[0.68rem] font-bold text-violet-700">Approved</span>`;
-    return professorRow(r, label);
+    return professorRow(r, label, true);
   }).join("");
 
   return pageHeader("Professor workspace", "Approval history", "Review class authorization decisions for your students.") + `
