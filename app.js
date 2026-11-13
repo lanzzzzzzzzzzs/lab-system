@@ -193,14 +193,6 @@ function loanStatus(request) {
   return "Active";
 }
 
-// How long an item was late: "25 min", "3 hr", "2 days"
-function lateText(milliseconds) {
-  const minutes = Math.max(1, Math.round(milliseconds / (60 * 1000)));
-  if (minutes < 60) return `${minutes} min`;
-  if (minutes < 24 * 60) return `${Math.round(minutes / 60)} hr`;
-  return plural(Math.round(minutes / (24 * 60)), "day");
-}
-
 // For a returned item: was it given back on time or late?
 // It compares the REAL return moment (date_returned) with the promised date and time.
 // Returns null when the item is not returned yet.
@@ -212,7 +204,7 @@ function returnTiming(request) {
   const returnedAt = new Date(request.date_returned.replace(" ", "T"));
 
   if (returnedAt <= dueAt) return { late: false, text: "Returned on time" };
-  return { late: true, text: `Returned late · ${lateText(returnedAt - dueAt)}` };
+  return { late: true, text: "Returned late" };
 }
 
 // The badge for a request. A returned item also says if it was on time or late.
