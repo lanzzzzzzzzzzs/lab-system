@@ -1801,11 +1801,62 @@ function lendingPage() {
     const borrowed = `Borrowed ${formatDateTime(r.date_reviewed)}`;
     const promised = `Return by ${whenText(r.return_date, r.return_time)}`;        // the return date and time the student typed
     const returned = r.status === "Returned" ? `Returned ${formatDateTime(r.date_returned)}` : "Not returned yet";
-    return recordRow(itemLabel(r), `${requestNumber(r)} · ${r.student}${r.student_id ? " · " + r.student_id : ""}`, borrowed, promised, statusBadge(r), returned);
+    // Only an item that is still borrowed can get a new return time
+    const editButton = r.status === "Approved"
+      ? `<button onclick="editReturnBy(${r.id})" class="rounded-lg border border-slate-200 px-2.5 py-1 text-xs font-bold text-slate-700 hover:bg-slate-50">Edit return time</button>`
+      : "";
+    return recordRow(itemLabel(r), `${requestNumber(r)} · ${r.student}${r.student_id ? " · " + r.student_id : ""}`, borrowed, promised, editButton + statusBadge(r), returned);
   }).join("");
 
   return pageHeader("Admin workspace", "Lending history", "A complete log of equipment lending activity.") +
     recordsCard("Activity records", rows, "No records found.");
+}
+
+// Pop-up where the administrator changes the "Return by" date and time
+function editReturnBy(id) {
+  const r = requests.find((entry) => entry.id === id);
+  if (!r) return;
+
+  openModal("Edit return time", `
+    <div class="space-y-4">
+      <p class="text-xs leading-5 text-slate-500">${esc(itemLabel(r))} · ${esc(r.student)}<br>Borrowed ${formatDateTime(r.date_reviewed)}</p>
+      <div class="grid gap-4 min-[420px]:grid-cols-2">
+        ${textField("Return date", "return-by-date", r.return_date, "date")}
+        ${textField("Return time", "return-by-time", String(r.return_time).slice(0, 5), "time")}
+      </div>
+      <div class="flex items-center gap-3 pt-2">
+        <button onclick="saveReturnBy(${r.id})" class="rounded-xl bg-slate-950 px-5 py-3 text-sm font-bold text-white hover:bg-slate-800">Save</button>
+        <button onclick="closeModal()" class="rounded-xl border border-slate-200 px-5 py-3 text-sm font-bold text-slate-700 hover:bg-slate-50">Cancel</button>
+      </div>
+    </div>`);
+}
+
+// UPDATE the return date and time of one borrowed item
+async function saveReturnBy(id) {
+  const data = {
+    id,
+    return_date: $("return-by-date").value,
+    return_time: $("return-by-time").value
+  };
+
+  if (data.return_date === "" || data.return_time === "") {
+    showToast("Please choose a return date and time.", true);
+    return;
+  }
+
+  try {
+    const { ok, result } = await postJson("api/request_return_by.php", data);
+    if (!ok) {
+      showToast(result.error, true);
+      return;
+    }
+    closeModal();
+    showToast(result.message);
+    await loadData();
+    render();
+  } catch (error) {
+    showToast("Unable to connect to the server.", true);
+  }
 }
 
 
