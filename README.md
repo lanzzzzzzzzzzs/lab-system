@@ -175,7 +175,6 @@ A request moves through these statuses: **Pending** (waiting for the professor) 
 
 https://labtrack.infinityfree.io/
 
-The test accounts for the instructor are in the `README.txt` of the submission. Passwords are never written in this public repository.
 
 ## Developers
 
