@@ -31,11 +31,11 @@ Every step is saved in a MySQL database, so nothing gets lost and every number o
 - Request several different items, and several units of the same item (no limit on the number of items)
 - Class details: professor, course code and name, section, schedule, laboratory purpose, date and time needed, return date and time
 - My borrowings with "Due soon" and "Overdue" labels (based on the promised date and time)
-- Request history with the date and time of each step
+- Request history with the date and time of each step, the **Return by** date and time you chose, and the actual return time, with an "on time" or "late" badge for every returned item
 
 ### Professor
 - Class authorizations: confirm or decline the requests sent to you, after checking the student, the class schedule, and the purpose
-- Approval history of your past decisions
+- Approval history of your past decisions, including the **Return by** date and time the student chose
 - Dashboard cards: awaiting review, approved, students, this week
 
 ### Administrator
@@ -44,7 +44,8 @@ Every step is saved in a MySQL database, so nothing gets lost and every number o
 - Equipment is counted in units. Some units of an item can be in inspection while the others stay available for borrowing
 - Categories: Optical, Glassware, Measuring, Laboratory Accessories, Heating Equipment
 - Borrowing requests: approve (only after a professor authorized it), decline, and mark as returned
-- Lending history with the exact borrow and return times
+- Lending history with the exact borrow time, the **Return by** date and time the student chose, and the actual return time, with an "on time" or "late" badge for every returned item
+- Edit return time: while an item is still borrowed, the administrator can change its **Return by** date and time (for example after an agreed extension). The new time must be after the time the item was borrowed. Returned items are locked, so their on-time or late result cannot be changed afterwards
 - Messages inbox: read the messages from students and professors, search, filter unread, and archive them. Administrators cannot reply inside LabTrack: the **Open Outlook** button opens a new email with the recipient and the subject already filled in
 - Manage users: change a role from the dropdown (Student, Professor, Administrator), suspend or reactivate accounts, and remove accounts
 - Professor and administrator accounts can only be created with a secret access code
@@ -83,7 +84,7 @@ lab-system/
 │   ├── config.example.php   a safe copy of config.php
 │   ├── register.php, login.php, logout.php, me.php, update_profile.php, change_password.php
 │   ├── items.php, item_save.php, item_delete.php
-│   ├── borrow.php, requests.php, class_review.php, request_update.php
+│   ├── borrow.php, requests.php, class_review.php, request_update.php, request_return_by.php
 │   ├── users.php, user_update.php, user_delete.php
 │   ├── message_send.php, messages.php, message_update.php
 │   └── public_stats.php
